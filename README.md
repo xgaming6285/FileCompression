@@ -1,51 +1,51 @@
-# File Compression Utility
+# 🗜️ File Compression Utility
 
 A high-performance C-based file compression tool supporting multiple algorithms, parallel processing, and encryption capabilities.
 
-## Overview
+## 📋 Overview
 
 This utility provides efficient file compression using several algorithms with a focus on performance and flexibility. It's designed to handle files of various sizes, from small text files to very large data files, with optimizations for different use cases.
 
-## Features
+## ✨ Features
 
-- **Multiple compression algorithms:**
-  - Huffman coding (optimal for text files)
-  - Run-Length Encoding (RLE) (good for files with repeated sequences)
-  - LZ77 compression (general purpose algorithm)
-  - Parallel versions of each algorithm for multi-core systems
-  - Encrypted compression with LZ77
+- **🧩 Multiple compression algorithms:**
+  - 📚 Huffman coding (optimal for text files)
+  - 🔄 Run-Length Encoding (RLE) (good for files with repeated sequences)
+  - 🔍 LZ77 compression (general purpose algorithm)
+  - ⚡ Parallel versions of each algorithm for multi-core systems
+  - 🔒 Encrypted compression with LZ77
 
-- **Performance options:**
-  - Large file support with chunk-based processing
-  - Optimization modes (speed vs. compression ratio)
-  - Multi-threaded compression/decompression
-  - Configurable buffer sizes
+- **⚙️ Performance options:**
+  - 📦 Large file support with chunk-based processing
+  - 🚀 Optimization modes (speed vs. compression ratio)
+  - 🧵 Multi-threaded compression/decompression
+  - 📏 Configurable buffer sizes
 
-- **Additional capabilities:**
-  - Built-in profiling for performance analysis
-  - File integrity verification
-  - Progress reporting for large files
+- **🛠️ Additional capabilities:**
+  - 📊 Built-in profiling for performance analysis
+  - ✅ File integrity verification
+  - 📈 Progress reporting for large files
 
-## Project Structure
+## 🏗️ Project Structure
 
 The project consists of several modules:
-- Core compression algorithms (`huffman.c`, `rle.c`, `lz77.c`)
-- Parallel processing support (`parallel.c`, `lz77_parallel.c`)
-- Large file handling (`large_file_utils.c`)
-- Security features (`encryption.c`)
-- Main interface (`filecompressor.c`)
+- 🧠 Core compression algorithms (`huffman.c`, `rle.c`, `lz77.c`)
+- ⚡ Parallel processing support (`parallel.c`, `lz77_parallel.c`)
+- 🗃️ Large file handling (`large_file_utils.c`)
+- 🔐 Security features (`encryption.c`)
+- 🖥️ Main interface (`filecompressor.c`)
 
-## Installation
+## 📥 Installation
 
-### Prerequisites
+### 📋 Prerequisites
 
-- C compiler (GCC, Clang, or MSVC)
-- Make (optional, for Unix-based systems)
-- At least 512MB RAM for normal operation, more for large files
+- 🔧 C compiler (GCC, Clang, or MSVC)
+- 🛠️ Make (optional, for Unix-based systems)
+- 💾 At least 512MB RAM for normal operation, more for large files
 
-### Building the Project
+### 🔨 Building the Project
 
-#### Using Make (recommended for Unix/Linux)
+#### 🐧 Using Make (recommended for Unix/Linux)
 
 ```bash
 # Default build
@@ -61,7 +61,7 @@ make optimize
 make clean
 ```
 
-#### Using batch file (Windows)
+#### 🪟 Using batch file (Windows)
 
 ```cmd
 # Default build
@@ -77,9 +77,9 @@ build.bat optimize
 build.bat clean
 ```
 
-## Usage
+## 📝 Usage
 
-### Quick Start (Windows)
+### 🚀 Quick Start (Windows)
 
 The `compress.bat` script provides easy access to common operations:
 
@@ -97,13 +97,13 @@ compress.bat compress lz77-parallel largefile.txt
 compress.bat compress lz77-encrypted myfile.txt mypassword
 ```
 
-### Command Line Interface
+### 💻 Command Line Interface
 
 ```
 filecompressor [options] <input_file> [output_file]
 ```
 
-#### Options
+#### ⚙️ Options
 
 - `-c [algorithm]`  Compress using specified algorithm (0-6)
 - `-d [algorithm]`  Decompress the input file
@@ -116,21 +116,21 @@ filecompressor [options] <input_file> [output_file]
 - `-p`              Enable profiling
 - `-h`              Display help message
 
-#### Algorithm Selection
+#### 🔢 Algorithm Selection
 
 Use the algorithm index or let the program deduce it from the file extension:
 
 | Index | Algorithm | Best For | File Extension |
 |-------|-----------|----------|----------------|
-| 0 | Huffman | Text files | .huf |
-| 1 | RLE | Repetitive data | .rle |
-| 2 | Parallel Huffman | Large text files | .hufp |
-| 3 | Parallel RLE | Large repetitive data | .rlep |
-| 4 | LZ77 | General purpose | .lz77 |
-| 5 | Parallel LZ77 | Large general files | .lz77p |
-| 6 | Encrypted LZ77 | Secure data | .lz77e |
+| 0 | 📚 Huffman | Text files | .huf |
+| 1 | 🔄 RLE | Repetitive data | .rle |
+| 2 | ⚡📚 Parallel Huffman | Large text files | .hufp |
+| 3 | ⚡🔄 Parallel RLE | Large repetitive data | .rlep |
+| 4 | 🔍 LZ77 | General purpose | .lz77 |
+| 5 | ⚡🔍 Parallel LZ77 | Large general files | .lz77p |
+| 6 | 🔒🔍 Encrypted LZ77 | Secure data | .lz77e |
 
-### Examples
+### 📋 Examples
 
 ```bash
 # Compress text file with Huffman
@@ -149,21 +149,21 @@ filecompressor -c 5 -L -B 1048576 -t 4 video.raw
 filecompressor -c 6 -k "my_secure_password" confidential.txt
 ```
 
-## Performance Optimization
+## 🚀 Performance Optimization
 
-- For large files (>1GB), use `-L` to enable chunk-based processing
-- For multi-core systems, use parallel algorithms (2, 3, or 5)
-- Increase buffer size (`-B`) for better throughput on SSDs
-- Use `-O speed` for faster compression, `-O size` for better compression ratio
-- For maximum speed, use RLE with `-O speed`
-- For best compression ratio, use Huffman with `-O size`
+- 📦 For large files (>1GB), use `-L` to enable chunk-based processing
+- ⚡ For multi-core systems, use parallel algorithms (2, 3, or 5)
+- 💨 Increase buffer size (`-B`) for better throughput on SSDs
+- ⚖️ Use `-O speed` for faster compression, `-O size` for better compression ratio
+- 🏎️ For maximum speed, use RLE with `-O speed`
+- 🗜️ For best compression ratio, use Huffman with `-O size`
 
-## Troubleshooting
+## ❓ Troubleshooting
 
-- If you encounter "out of memory" errors, enable large file mode (`-L`)
-- For corrupted output, ensure no partial writes occurred during compression
-- If decompression fails, verify you're using the same algorithm as compression
+- 💾 If you encounter "out of memory" errors, enable large file mode (`-L`)
+- 🛠️ For corrupted output, ensure no partial writes occurred during compression
+- 🔄 If decompression fails, verify you're using the same algorithm as compression
 
-## License
+## 📄 License
 
 This project is available under the MIT License.
