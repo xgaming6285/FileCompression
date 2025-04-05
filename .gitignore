@@ -1,0 +1,38 @@
+# Ignore all files by default
+*
+
+# Keep source code and build scripts
+!*.c
+!*.h
+!*.bat
+!Makefile
+!README.md
+!.gitignore
+
+# Ignore object files and executables
+*.o
+*.obj
+*.exe
+*.out
+*.app
+
+# Ignore compressed files
+*.huf
+*.rle
+*.rlep
+*.lz77
+*.lz77p
+*.lz77e
+*.hufp
+
+# Ignore test files
+test*.txt
+large*.txt
+*test*
+
+# Keep specific test files needed for examples
+!test.txt
+
+# Ignore other common files
+.DS_Store
+Thumbs.db 

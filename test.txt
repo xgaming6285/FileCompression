@@ -1,0 +1,6 @@
+This is a test file for the Huffman compression algorithm.
+It contains repeating patterns and characters to demonstrate the efficiency of Huffman coding.
+The more repetitive the content, the better the compression ratio will be.
+Huffman coding assigns shorter codes to more frequent characters, making it very efficient for text compression.
+AAAAAAAAABBBBBBBCCCCCDDDDEEEFG
+The quick brown fox jumps over the lazy dog. 
