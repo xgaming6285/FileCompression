@@ -1,19 +1,33 @@
 # 🗜️ File Compression Utility
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/username/file-compression)
+[![GitHub stars](https://img.shields.io/github/stars/username/file-compression?style=social)](https://github.com/username/file-compression)
+
+<div align="center">
+  <img src="https://media.giphy.com/media/3oKIPEqDGUULpEU0aQ/giphy.gif" width="450" alt="Compression Animation">
+</div>
+
 A high-performance C-based file compression tool supporting multiple algorithms, parallel processing, and encryption capabilities.
 
-## 📋 Overview
+<details>
+<summary>📋 <b>Overview</b> (Click to expand)</summary>
 
 This utility provides efficient file compression using several algorithms with a focus on performance and flexibility. It's designed to handle files of various sizes, from small text files to very large data files, with optimizations for different use cases.
+</details>
 
 ## ✨ Features
 
+<div align="center">
+  <img src="https://media.giphy.com/media/l2R09jc6eZIltCikg/giphy.gif" width="300" alt="Features Animation">
+</div>
+
 - **🧩 Multiple compression algorithms:**
-  - 📚 Huffman coding (optimal for text files)
-  - 🔄 Run-Length Encoding (RLE) (good for files with repeated sequences)
-  - 🔍 LZ77 compression (general purpose algorithm)
-  - ⚡ Parallel versions of each algorithm for multi-core systems
-  - 🔒 Encrypted compression with LZ77
+  - 📚 Huffman coding <kbd>Best for text</kbd>
+  - 🔄 Run-Length Encoding (RLE) <kbd>Good for repetition</kbd>
+  - 🔍 LZ77 compression <kbd>General purpose</kbd>
+  - ⚡ Parallel versions of each algorithm <kbd>Multi-core</kbd>
+  - 🔒 Encrypted compression with LZ77 <kbd>Secure</kbd>
 
 - **⚙️ Performance options:**
   - 📦 Large file support with chunk-based processing
@@ -28,18 +42,42 @@ This utility provides efficient file compression using several algorithms with a
 
 ## 🏗️ Project Structure
 
-The project consists of several modules:
-- 🧠 Core compression algorithms (`huffman.c`, `rle.c`, `lz77.c`)
-- ⚡ Parallel processing support (`parallel.c`, `lz77_parallel.c`)
-- 🗃️ Large file handling (`large_file_utils.c`)
-- 🔐 Security features (`encryption.c`)
-- 🖥️ Main interface (`filecompressor.c`)
+<div align="center">
+  <img src="https://media.giphy.com/media/3o6ZtjDngn9alexHYA/giphy.gif" width="250" alt="Structure Animation">
+</div>
+
+<table align="center">
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/Core-Algorithms-blue" height="30"/></td>
+    <td><code>huffman.c</code>, <code>rle.c</code>, <code>lz77.c</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/Parallel-Processing-orange" height="30"/></td>
+    <td><code>parallel.c</code>, <code>lz77_parallel.c</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/File-Handling-green" height="30"/></td>
+    <td><code>large_file_utils.c</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/Security-Features-red" height="30"/></td>
+    <td><code>encryption.c</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/User-Interface-purple" height="30"/></td>
+    <td><code>filecompressor.c</code></td>
+  </tr>
+</table>
 
 ## 📥 Installation
 
+<div align="center">
+  <img src="https://media.giphy.com/media/tXLpxypfSXvUc/giphy.gif" width="250" alt="Installation Animation">
+</div>
+
 ### 📋 Prerequisites
 
-- 🔧 C compiler (GCC, Clang, or MSVC)
+- 🔧 C compiler <kbd>GCC</kbd> <kbd>Clang</kbd> <kbd>MSVC</kbd>
 - 🛠️ Make (optional, for Unix-based systems)
 - 💾 At least 512MB RAM for normal operation, more for large files
 
@@ -79,6 +117,10 @@ build.bat clean
 
 ## 📝 Usage
 
+<div align="center">
+  <img src="https://media.giphy.com/media/xT9IgzoKnwFNmISR8I/giphy.gif" width="300" alt="Usage Animation">
+</div>
+
 ### 🚀 Quick Start (Windows)
 
 The `compress.bat` script provides easy access to common operations:
@@ -105,30 +147,107 @@ filecompressor [options] <input_file> [output_file]
 
 #### ⚙️ Options
 
-- `-c [algorithm]`  Compress using specified algorithm (0-6)
-- `-d [algorithm]`  Decompress the input file
-- `-a`              List available compression algorithms
-- `-t [threads]`    Number of threads to use (default: auto)
-- `-k [key]`        Encryption key for secure algorithms
-- `-O [goal]`       Optimization goal: speed or size
-- `-B [size]`       Buffer size in bytes (default: 8192)
-- `-L`              Enable large file mode for files > available RAM
-- `-p`              Enable profiling
-- `-h`              Display help message
+<div align="center">
+<table>
+  <tr>
+    <td><kbd>-c [algorithm]</kbd></td>
+    <td>Compress using specified algorithm (0-6)</td>
+  </tr>
+  <tr>
+    <td><kbd>-d [algorithm]</kbd></td>
+    <td>Decompress the input file</td>
+  </tr>
+  <tr>
+    <td><kbd>-a</kbd></td>
+    <td>List available compression algorithms</td>
+  </tr>
+  <tr>
+    <td><kbd>-t [threads]</kbd></td>
+    <td>Number of threads to use (default: auto)</td>
+  </tr>
+  <tr>
+    <td><kbd>-k [key]</kbd></td>
+    <td>Encryption key for secure algorithms</td>
+  </tr>
+  <tr>
+    <td><kbd>-O [goal]</kbd></td>
+    <td>Optimization goal: speed or size</td>
+  </tr>
+  <tr>
+    <td><kbd>-B [size]</kbd></td>
+    <td>Buffer size in bytes (default: 8192)</td>
+  </tr>
+  <tr>
+    <td><kbd>-L</kbd></td>
+    <td>Enable large file mode for files > available RAM</td>
+  </tr>
+  <tr>
+    <td><kbd>-p</kbd></td>
+    <td>Enable profiling</td>
+  </tr>
+  <tr>
+    <td><kbd>-h</kbd></td>
+    <td>Display help message</td>
+  </tr>
+</table>
+</div>
 
 #### 🔢 Algorithm Selection
 
 Use the algorithm index or let the program deduce it from the file extension:
 
-| Index | Algorithm | Best For | File Extension |
-|-------|-----------|----------|----------------|
-| 0 | 📚 Huffman | Text files | .huf |
-| 1 | 🔄 RLE | Repetitive data | .rle |
-| 2 | ⚡📚 Parallel Huffman | Large text files | .hufp |
-| 3 | ⚡🔄 Parallel RLE | Large repetitive data | .rlep |
-| 4 | 🔍 LZ77 | General purpose | .lz77 |
-| 5 | ⚡🔍 Parallel LZ77 | Large general files | .lz77p |
-| 6 | 🔒🔍 Encrypted LZ77 | Secure data | .lz77e |
+<div align="center">
+<table>
+  <tr>
+    <th>Index</th>
+    <th>Algorithm</th>
+    <th>Best For</th>
+    <th>File Extension</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/0-Huffman-blue" height="22"/></td>
+    <td>📚 Huffman</td>
+    <td>Text files</td>
+    <td><code>.huf</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/1-RLE-green" height="22"/></td>
+    <td>🔄 RLE</td>
+    <td>Repetitive data</td>
+    <td><code>.rle</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/2-Parallel%20Huffman-blue" height="22"/></td>
+    <td>⚡📚 Parallel Huffman</td>
+    <td>Large text files</td>
+    <td><code>.hufp</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/3-Parallel%20RLE-green" height="22"/></td>
+    <td>⚡🔄 Parallel RLE</td>
+    <td>Large repetitive data</td>
+    <td><code>.rlep</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/4-LZ77-orange" height="22"/></td>
+    <td>🔍 LZ77</td>
+    <td>General purpose</td>
+    <td><code>.lz77</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/5-Parallel%20LZ77-orange" height="22"/></td>
+    <td>⚡🔍 Parallel LZ77</td>
+    <td>Large general files</td>
+    <td><code>.lz77p</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/6-Encrypted%20LZ77-red" height="22"/></td>
+    <td>🔒🔍 Encrypted LZ77</td>
+    <td>Secure data</td>
+    <td><code>.lz77e</code></td>
+  </tr>
+</table>
+</div>
 
 ### 📋 Examples
 
@@ -151,19 +270,68 @@ filecompressor -c 6 -k "my_secure_password" confidential.txt
 
 ## 🚀 Performance Optimization
 
-- 📦 For large files (>1GB), use `-L` to enable chunk-based processing
-- ⚡ For multi-core systems, use parallel algorithms (2, 3, or 5)
-- 💨 Increase buffer size (`-B`) for better throughput on SSDs
-- ⚖️ Use `-O speed` for faster compression, `-O size` for better compression ratio
-- 🏎️ For maximum speed, use RLE with `-O speed`
-- 🗜️ For best compression ratio, use Huffman with `-O size`
+<div align="center">
+  <img src="https://media.giphy.com/media/xTiTnGmnf7CxpduWxq/giphy.gif" width="250" alt="Performance Animation">
+</div>
+
+<div align="center">
+<table>
+  <tr>
+    <td><img src="https://img.shields.io/badge/-Large%20Files-blueviolet" height="25"/></td>
+    <td>📦 For files >1GB, use <kbd>-L</kbd> for chunk-based processing</td>
+  </tr>
+  <tr>
+    <td><img src="https://img.shields.io/badge/-Multi%20Core-brightgreen" height="25"/></td>
+    <td>⚡ Use parallel algorithms (2, 3, or 5) for multi-core systems</td>
+  </tr>
+  <tr>
+    <td><img src="https://img.shields.io/badge/-SSD%20Optimization-blue" height="25"/></td>
+    <td>💨 Increase buffer size (<kbd>-B</kbd>) for better throughput on SSDs</td>
+  </tr>
+  <tr>
+    <td><img src="https://img.shields.io/badge/-Balance-orange" height="25"/></td>
+    <td>⚖️ Use <kbd>-O speed</kbd> for faster compression, <kbd>-O size</kbd> for better ratio</td>
+  </tr>
+  <tr>
+    <td><img src="https://img.shields.io/badge/-Max%20Speed-red" height="25"/></td>
+    <td>🏎️ For maximum speed, use RLE with <kbd>-O speed</kbd></td>
+  </tr>
+  <tr>
+    <td><img src="https://img.shields.io/badge/-Best%20Compression-darkgreen" height="25"/></td>
+    <td>🗜️ For best compression ratio, use Huffman with <kbd>-O size</kbd></td>
+  </tr>
+</table>
+</div>
 
 ## ❓ Troubleshooting
 
-- 💾 If you encounter "out of memory" errors, enable large file mode (`-L`)
-- 🛠️ For corrupted output, ensure no partial writes occurred during compression
-- 🔄 If decompression fails, verify you're using the same algorithm as compression
+<div align="center">
+  <img src="https://media.giphy.com/media/xT9DPrC1YWXBO1coyQ/giphy.gif" width="250" alt="Troubleshooting Animation">
+</div>
+
+<details>
+<summary>💾 <b>Memory Issues</b></summary>
+If you encounter "out of memory" errors, enable large file mode (<kbd>-L</kbd>)
+</details>
+
+<details>
+<summary>🛠️ <b>Corrupted Output</b></summary>
+Ensure no partial writes occurred during compression
+</details>
+
+<details>
+<summary>🔄 <b>Decompression Fails</b></summary>
+Verify you're using the same algorithm as compression
+</details>
 
 ## 📄 License
 
+<div align="center">
+  <img src="https://media.giphy.com/media/S60CrN9iMxFlyp7uM8/giphy.gif" width="200" alt="License Animation">
+</div>
+
 This project is available under the MIT License.
+
+<div align="center">
+  <a href="#"><img src="https://img.shields.io/badge/⬆️-Back%20to%20Top-lightgrey" alt="Back to Top"></a>
+</div>
