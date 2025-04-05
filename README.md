@@ -1,4 +1,4 @@
-# 🗜️ File Compression Utility
+# 🗜️ File Compression Utility <a name="top"></a>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/username/file-compression)
@@ -333,5 +333,5 @@ Verify you're using the same algorithm as compression
 This project is available under the MIT License.
 
 <div align="center">
-  <a href="#"><img src="https://img.shields.io/badge/⬆️-Back%20to%20Top-lightgrey" alt="Back to Top"></a>
+  <a href="#top"><img src="https://img.shields.io/badge/⬆️-Back%20to%20Top-lightgrey" alt="Back to Top"></a>
 </div>
