@@ -49,6 +49,7 @@ This utility provides efficient file compression using several algorithms with a
   - ⚡ Parallel versions of each algorithm <kbd>Multi-core</kbd>
   - 🔒 Encrypted compression with LZ77 <kbd>Secure</kbd>
   - 📊 Progressive format <kbd>Partial decompression & streaming</kbd>
+  - 🔍 Deduplication <kbd>Eliminating redundant data across files</kbd>
 
 - **⚙️ Performance options:**
   - 📦 Large file support with chunk-based processing
@@ -57,6 +58,8 @@ This utility provides efficient file compression using several algorithms with a
   - 📏 Configurable buffer sizes
   - 📎 Block-based access for partial file decompression
   - ✂️ Split archive mode for handling very large files
+  - 🧰 Deduplication with multiple chunk modes (fixed, variable, smart)
+  - 🔐 Multiple hash algorithms for deduplication (SHA1, MD5, CRC32, XXH64)
 
 - **🛠️ Additional capabilities:**
   - 📊 Built-in profiling for performance analysis
@@ -184,6 +187,15 @@ compress.bat decompress progressive input.prog output.txt 0-5
 
 # Stream a progressive file to console
 filecompressor -d -P -S - input.prog -
+
+# Deduplicate a file using fixed-size chunking and then compress with LZ77
+compress.bat deduplicate myarchive.zip lz77
+
+# Deduplicate a file using variable-size chunking without compression
+compress.bat deduplicate myarchive.zip none variable
+
+# Deduplicate with custom chunk size (128KB) and hash algorithm (SHA1)
+compress.bat deduplicate myarchive.zip lz77 variable 128k sha1
 ```
 
 ### 💻 Command Line Interface
@@ -249,8 +261,20 @@ filecompressor [options] <input_file> [output_file]
     <td>Maximum size in bytes for each split archive part</td>
   </tr>
   <tr>
-    <td><kbd>-h</kbd></td>
-    <td>Display help message</td>
+    <td><kbd>-D</kbd></td>
+    <td>Enable deduplication (identify and eliminate redundant data)</td>
+  </tr>
+  <tr>
+    <td><kbd>-C [size]</kbd></td>
+    <td>Chunk size for deduplication in bytes (default: 64KB)</td>
+  </tr>
+  <tr>
+    <td><kbd>-H [algorithm]</kbd></td>
+    <td>Hash algorithm for deduplication (0=SHA1, 1=MD5, 2=CRC32, 3=XXH64)</td>
+  </tr>
+  <tr>
+    <td><kbd>-V [mode]</kbd></td>
+    <td>Deduplication mode (0=fixed, 1=variable, 2=smart)</td>
   </tr>
 </table>
 </div>
@@ -402,7 +426,7 @@ Our compression tool outperforms many standard utilities across several metrics:
 <details>
 <summary><div align="center"><strong>📊 Click to View Full Benchmark Results</strong></div></summary>
 <div align="center">
-  <img src="benchmark_results_chart.png" alt="Benchmark Results" width="100%">
+  <img src="results.png" alt="Benchmark Results" width="100%">
 </div>
 </details>
 

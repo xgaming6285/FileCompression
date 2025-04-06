@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "large_file_utils.h"
+#include "deduplication.h"
 
 // Optimization goals
 typedef enum {

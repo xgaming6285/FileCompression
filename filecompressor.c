@@ -12,6 +12,7 @@
 #include "encryption.h"
 #include "progressive.h"
 #include "split_archive.h"
+#include "deduplication.h"
 
 // Global variables
 OptimizationGoal opt_goal = OPT_NONE;
@@ -45,6 +46,10 @@ void print_usage() {
     printf("  -S [output]     Stream output to a callback function (e.g., display or process)\n");
     printf("  -X              Enable split archive mode (create multiple files)\n");
     printf("  -M [size]       Maximum size in bytes for each split archive part (default: 100MB)\n");
+    printf("  -D              Enable deduplication (identify and eliminate redundant data)\n");
+    printf("  -C [size]       Chunk size for deduplication in bytes (default: 64KB)\n");
+    printf("  -H [algorithm]  Hash algorithm for deduplication (0=SHA1, 1=MD5, 2=CRC32, 3=XXH64, default: 0)\n");
+    printf("  -V [mode]       Deduplication mode (0=fixed, 1=variable, 2=smart, default: 0)\n");
     printf("  -h              Display this help message\n");
     printf("\n");
     printf("If algorithm is not specified, Huffman coding (0) is used by default.\n");
@@ -151,6 +156,12 @@ int main(int argc, char *argv[]) {
     int range_specified = 0;
     int stream_mode = 0;
     ChecksumType checksum_type = CHECKSUM_NONE; // Default to no checksum
+    
+    // Add deduplication flags
+    int deduplication_enabled = 0;
+    size_t dedup_chunk_size = DEFAULT_DEDUP_CHUNK_SIZE;
+    DedupHashAlgorithm dedup_hash_algorithm = DEDUP_HASH_SHA1;
+    DedupMode dedup_mode = DEDUP_MODE_FIXED;
     
     while (i < argc) {
         char *arg = argv[i];
@@ -312,6 +323,75 @@ int main(int argc, char *argv[]) {
                     printf("Error: Missing key after -k option\n");
                     return 1;
                 }
+            } else if (strcmp(arg, "-D") == 0) {
+                // Enable deduplication
+                deduplication_enabled = 1;
+                printf("Deduplication enabled (identify and eliminate redundant data)\n");
+                i++;
+            } else if (strcmp(arg, "-C") == 0) {
+                // Chunk size for deduplication
+                if (i + 1 < argc) {
+                    dedup_chunk_size = atoi(argv[i + 1]);
+                    if (dedup_chunk_size < MIN_DEDUP_CHUNK_SIZE) {
+                        printf("Warning: Deduplication chunk size too small, using minimum size: %d bytes\n", MIN_DEDUP_CHUNK_SIZE);
+                        dedup_chunk_size = MIN_DEDUP_CHUNK_SIZE;
+                    } else if (dedup_chunk_size > MAX_DEDUP_CHUNK_SIZE) {
+                        printf("Warning: Deduplication chunk size too large, using maximum size: %d bytes\n", MAX_DEDUP_CHUNK_SIZE);
+                        dedup_chunk_size = MAX_DEDUP_CHUNK_SIZE;
+                    }
+                    printf("Deduplication chunk size set to: %zu bytes\n", dedup_chunk_size);
+                    i += 2;
+                } else {
+                    printf("Error: Missing chunk size after -C\n");
+                    print_usage();
+                    return 1;
+                }
+            } else if (strcmp(arg, "-H") == 0) {
+                // Hash algorithm for deduplication
+                if (i + 1 < argc) {
+                    int algorithm = atoi(argv[i + 1]);
+                    if (algorithm >= 0 && algorithm <= 3) {
+                        dedup_hash_algorithm = (DedupHashAlgorithm)algorithm;
+                        
+                        const char* hash_algorithm_names[] = {
+                            "SHA1", "MD5", "CRC32", "XXH64"
+                        };
+                        
+                        printf("Deduplication hash algorithm: %s\n", hash_algorithm_names[dedup_hash_algorithm]);
+                    } else {
+                        printf("Error: Invalid hash algorithm. Use 0 (SHA1), 1 (MD5), 2 (CRC32), or 3 (XXH64)\n");
+                        print_usage();
+                        return 1;
+                    }
+                    i += 2;
+                } else {
+                    printf("Error: Missing hash algorithm after -H\n");
+                    print_usage();
+                    return 1;
+                }
+            } else if (strcmp(arg, "-V") == 0) {
+                // Deduplication mode
+                if (i + 1 < argc) {
+                    int mode = atoi(argv[i + 1]);
+                    if (mode >= 0 && mode <= 2) {
+                        dedup_mode = (DedupMode)mode;
+                        
+                        const char* dedup_mode_names[] = {
+                            "Fixed-size chunking", "Variable-size chunking", "Smart chunking"
+                        };
+                        
+                        printf("Deduplication mode: %s\n", dedup_mode_names[dedup_mode]);
+                    } else {
+                        printf("Error: Invalid deduplication mode. Use 0 (fixed), 1 (variable), or 2 (smart)\n");
+                        print_usage();
+                        return 1;
+                    }
+                    i += 2;
+                } else {
+                    printf("Error: Missing deduplication mode after -V\n");
+                    print_usage();
+                    return 1;
+                }
             } else if (strcmp(arg, "-c") == 0 || strcmp(arg, "-d") == 0) {
                 compress_mode = (strcmp(arg, "-c") == 0) ? 1 : 0;
                 i++;
@@ -339,8 +419,16 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
         } else {
-            // Not an option, assume it's the output file
-            output_file = arg;
+            // Not an option, assume it's a file
+            if (input_file == NULL) {
+                input_file = arg;
+            } else if (output_file == NULL) {
+                output_file = arg;
+            } else {
+                printf("Error: Too many arguments\n");
+                print_usage();
+                return 1;
+            }
             i++;
         }
     }
@@ -411,6 +499,11 @@ int main(int argc, char *argv[]) {
         printf("Auto-generated output file: %s\n", output_file);
     }
     
+    // Initialize deduplication if enabled
+    if (deduplication_enabled) {
+        init_deduplication(dedup_chunk_size, dedup_hash_algorithm, dedup_mode);
+    }
+    
     // Execute the operation
     int result = 0;
     ProfileData profile;
@@ -431,7 +524,13 @@ int main(int argc, char *argv[]) {
     // Perform the requested operation
     if (compress_mode == 1) {
         // Compression
-        if (split_mode) {
+        if (deduplication_enabled) {
+            // Deduplicate and then compress
+            result = deduplicate_file(input_file, output_file, algorithm_index, checksum_type);
+            // Print deduplication statistics
+            print_dedup_stats();
+            cleanup_deduplication();
+        } else if (split_mode) {
             // Split archive compression
             result = compress_to_split_archive(input_file, output_file, algorithm_index, max_part_size, checksum_type);
         } else if (progressive_mode) {
@@ -471,7 +570,19 @@ int main(int argc, char *argv[]) {
         print_profiling_results(&profile);
     }
     
-    if ((algorithm_index == 1 || algorithm_index == 3) && result == 0) {
+    // Check the result value based on operation
+    if (deduplication_enabled) {
+        // For deduplication, 0 always means success
+        if (result == 0) {
+            printf("Operation completed successfully!\n");
+            printf("Input file: %s\n", input_file);
+            printf("Output file: %s\n", output_file);
+            return 0;
+        } else {
+            printf("Operation failed\n");
+            return 1;
+        }
+    } else if ((algorithm_index == 1 || algorithm_index == 3) && result == 0) {
         // For RLE and RLE-Parallel, 0 means success
         printf("Operation completed successfully!\n");
         printf("Input file: %s\n", input_file);
@@ -492,8 +603,11 @@ int main(int argc, char *argv[]) {
     
     // For RLE algorithms, return 0 (success) if result was 0
     // For other algorithms, return 0 (success) if result was non-zero
-    if ((algorithm_index == 1 || algorithm_index == 3) && result == 0)
+    if (deduplication_enabled) {
+        return result ? 1 : 0; // For deduplication, return 0 if result is 0 (success)
+    } else if ((algorithm_index == 1 || algorithm_index == 3) && result == 0) {
         return 0;
+    }
     
     return result ? 0 : 1;
 } 

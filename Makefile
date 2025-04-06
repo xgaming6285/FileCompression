@@ -1,13 +1,14 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -std=c11
+CFLAGS = -Wall -Wextra -std=c11 -pthread
 LDFLAGS = -pthread
+LIBS = -lm -lssl -lcrypto
 
 # For multithreading support
 CFLAGS += -pthread
 
 # Source files
 SOURCES = filecompressor.c compression.c huffman.c rle.c lz77.c encryption.c \
-          parallel.c lz77_parallel.c large_file_utils.c progressive.c split_archive.c
+          parallel.c lz77_parallel.c large_file_utils.c progressive.c split_archive.c deduplication.c
 
 # Object files
 OBJECTS = $(SOURCES:.c=.o)
@@ -17,7 +18,7 @@ EXECUTABLE = filecompressor
 
 # Test sources
 TEST_SOURCES = test_large_file.c
-TEST_OBJECTS = $(TEST_SOURCES:.c=.o)
+TEST_OBJECTS = $(TEST_SOURCES:.c=.o) large_file_utils.o
 TEST_EXECUTABLE = test_large_file
 
 # Default target
@@ -28,20 +29,20 @@ debug: CFLAGS += -g -DDEBUG
 debug: all
 
 # Release build with more optimizations
-release: CFLAGS += -O3 -DNDEBUG
+release: CFLAGS += -O3 -march=native -DNDEBUG
 release: all
 
 # Link the executable
 $(EXECUTABLE): $(OBJECTS)
-	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
+	$(CC) $(OBJECTS) -o $@ $(LDFLAGS) $(LIBS)
 
 # Compile source files
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Test executable
-$(TEST_EXECUTABLE): $(TEST_OBJECTS) large_file_utils.o
-	$(CC) $(TEST_OBJECTS) large_file_utils.o -o $@ $(LDFLAGS)
+$(TEST_EXECUTABLE): $(TEST_OBJECTS)
+	$(CC) $(TEST_OBJECTS) -o $@ $(LDFLAGS) $(LIBS)
 
 # Clean up
 clean:
@@ -60,5 +61,6 @@ large_file_utils.o: large_file_utils.c large_file_utils.h
 progressive.o: progressive.c progressive.h compression.h huffman.h lz77.h rle.h
 split_archive.o: split_archive.c split_archive.h large_file_utils.h compression.h
 test_large_file.o: test_large_file.c large_file_utils.h
+deduplication.o: deduplication.c deduplication.h
 
 .PHONY: all debug release clean 

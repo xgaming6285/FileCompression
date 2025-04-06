@@ -44,11 +44,11 @@ error_output.txt
 *.hufp
 
 # Ignore all test files
+*.txt
 test*.txt
 large*.txt
 *test*
 verylarge*.txt
-test.txt
 
 # Ignore all HTML files (except the one we want to keep)
 *.html
@@ -63,4 +63,4 @@ open_benchmark*.bat
 # Ignore other common files
 .DS_Store
 Thumbs.db 
-!benchmark_results_chart.png
+!results.png

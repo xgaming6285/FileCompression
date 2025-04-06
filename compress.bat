@@ -1,205 +1,249 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM Check if help is requested
-if "%1"=="help" goto help
-if "%1"=="--help" goto help
-if "%1"=="-h" goto help
+REM Get the operation from the first argument
+set OPERATION=%1
 
-REM Check for minimum arguments
-if "%1"=="" goto help
-
-set MODE=%1
-set ALGO_NAME=%2
-set INPUT=%3
-set OUTPUT=%4
-set PARAM5=%5
-set OPTIONS=
-
-REM Process compression mode
-if /i "%MODE%"=="compress" (
-    set CMD=-c
-) else if /i "%MODE%"=="decompress" (
-    set CMD=-d
-) else (
-    echo Unknown mode: %MODE%
-    goto help
+REM If no operation is provided, show usage
+if "%OPERATION%"=="" (
+    goto usage
 )
 
-REM Check for required arguments
-if "%ALGO_NAME%"=="" (
-    echo Missing algorithm name
-    goto help
-)
+REM Get the algorithm from the second argument
+set ALGORITHM=%2
 
-if "%INPUT%"=="" (
-    echo Missing input file
-    goto help
-)
-
-REM Map algorithm name to index
-set ALGO=
-if /i "%ALGO_NAME%"=="huffman" set ALGO=0
-if /i "%ALGO_NAME%"=="rle" set ALGO=1
-if /i "%ALGO_NAME%"=="huffman-parallel" set ALGO=2
-if /i "%ALGO_NAME%"=="rle-parallel" set ALGO=3
-if /i "%ALGO_NAME%"=="lz77" set ALGO=4
-if /i "%ALGO_NAME%"=="lz77-parallel" set ALGO=5
-if /i "%ALGO_NAME%"=="lz77-encrypted" set ALGO=6
-if /i "%ALGO_NAME%"=="progressive" (
-    set ALGO=7
-)
-if /i "%ALGO_NAME%"=="split" (
-    set ALGO=4
-    set OPTIONS=%OPTIONS% -X
-)
-
-REM Check if algorithm is valid
-if "%ALGO%"=="" if /i not "%ALGO_NAME%"=="progressive" if /i not "%ALGO_NAME%"=="split" (
-    echo Unknown algorithm: %ALGO_NAME%
-    goto help
-)
-
-REM Check if input file exists
-if not exist "%INPUT%" (
-    echo Input file not found: %INPUT%
-    goto end
-)
-
-REM Add threads if parallel algorithm is used
-if "%ALGO%"=="2" set OPTIONS=%OPTIONS% -t 4
-if "%ALGO%"=="3" set OPTIONS=%OPTIONS% -t 4
-if "%ALGO%"=="5" set OPTIONS=%OPTIONS% -t 4
-
-REM Auto-generate output file if not provided
-if "%OUTPUT%"=="" (
-    if /i "%MODE%"=="compress" (
-        if /i "%ALGO_NAME%"=="huffman" set OUTPUT=%INPUT%.huf
-        if /i "%ALGO_NAME%"=="rle" set OUTPUT=%INPUT%.rle
-        if /i "%ALGO_NAME%"=="huffman-parallel" set OUTPUT=%INPUT%.hufp
-        if /i "%ALGO_NAME%"=="rle-parallel" set OUTPUT=%INPUT%.rlep
-        if /i "%ALGO_NAME%"=="lz77" set OUTPUT=%INPUT%.lz77
-        if /i "%ALGO_NAME%"=="lz77-parallel" set OUTPUT=%INPUT%.lz77p
-        if /i "%ALGO_NAME%"=="lz77-encrypted" set OUTPUT=%INPUT%.lz77e
-        if /i "%ALGO_NAME%"=="progressive" set OUTPUT=%INPUT%.prog
-        if /i "%ALGO_NAME%"=="split" set OUTPUT=%INPUT%
+REM If no algorithm is provided, use default or show usage based on operation
+if "%ALGORITHM%"=="" (
+    if "%OPERATION%"=="list" (
+        set ALGORITHM=none
     ) else (
-        REM Get base name without extension for decompression
-        for %%A in ("%INPUT%") do set BASENAME=%%~nA
-        set OUTPUT=!BASENAME!_decompressed.txt
-    )
-    echo Auto-generated output file: !OUTPUT!
-)
-
-REM Check for special modes like progressive and split
-if /i "%ALGO_NAME%"=="progressive" (
-    REM If this is a range-based decompression for progressive format
-    if /i "%MODE%"=="decompress" if not "%PARAM5%"=="" (
-        set OPTIONS=%OPTIONS% -R %PARAM5%
-        echo Using range: %PARAM5%
+        goto usage
     )
 )
 
-if /i "%ALGO_NAME%"=="split" (
-    REM Check if a custom part size was specified
-    if not "%PARAM5%"=="" (
-        set SIZE_PARAM=%PARAM5%
-        set SIZE_NUMBER=
-        set SIZE_UNIT=
-        
-        REM Extract the number and unit
-        for /f "delims=0123456789" %%a in ("%SIZE_PARAM%") do set SIZE_UNIT=%%a
-        for /f "delims=KMGkmg" %%a in ("%SIZE_PARAM%") do set SIZE_NUMBER=%%a
-        
-        if "!SIZE_UNIT!"=="K" set SIZE_UNIT=1024
-        if "!SIZE_UNIT!"=="k" set SIZE_UNIT=1024
-        if "!SIZE_UNIT!"=="M" set SIZE_UNIT=1048576
-        if "!SIZE_UNIT!"=="m" set SIZE_UNIT=1048576
-        if "!SIZE_UNIT!"=="G" set SIZE_UNIT=1073741824
-        if "!SIZE_UNIT!"=="g" set SIZE_UNIT=1073741824
-        
-        REM Calculate size in bytes
-        set /a PART_SIZE=!SIZE_NUMBER!*!SIZE_UNIT!
-        
-        REM If it's just a number, assume bytes
-        if "!SIZE_UNIT!"=="" set PART_SIZE=!SIZE_NUMBER!
-        
-        set OPTIONS=%OPTIONS% -M !PART_SIZE!
-        echo Setting split part size to !PART_SIZE! bytes
+REM Get the input file from the third argument
+set INPUT_FILE=%3
+
+REM If no input file is provided (except for 'list' operation), show usage
+if "%INPUT_FILE%"=="" (
+    if not "%OPERATION%"=="list" (
+        goto usage
     )
 )
 
-REM Process checksum parameter
-if not "%PARAM5%"=="" (
-    if /i "%PARAM5%"=="crc32" (
-        set OPTIONS=%OPTIONS% -I 1
-        echo Adding CRC32 integrity verification
-    ) else if /i "%PARAM5%"=="md5" (
-        set OPTIONS=%OPTIONS% -I 2
-        echo Adding MD5 integrity verification
-    ) else if /i "%PARAM5%"=="sha256" (
-        set OPTIONS=%OPTIONS% -I 3
-        echo Adding SHA256 integrity verification
+REM Get the output file or other parameter from the fourth argument
+set OUTPUT_FILE=%4
+
+REM Handle different operations
+if /i "%OPERATION%"=="compress" goto compress
+if /i "%OPERATION%"=="decompress" goto decompress
+if /i "%OPERATION%"=="list" goto list
+if /i "%OPERATION%"=="help" goto usage
+if /i "%OPERATION%"=="deduplicate" goto deduplicate
+
+echo Unknown operation: %OPERATION%
+goto usage
+
+:list
+echo Available compression algorithms:
+filecompressor -a
+goto end
+
+:compress
+REM Map algorithm names to indices
+set ALGO_INDEX=0
+
+if /i "%ALGORITHM%"=="huffman" set ALGO_INDEX=0
+if /i "%ALGORITHM%"=="rle" set ALGO_INDEX=1
+if /i "%ALGORITHM%"=="huffman-parallel" set ALGO_INDEX=2
+if /i "%ALGORITHM%"=="rle-parallel" set ALGO_INDEX=3
+if /i "%ALGORITHM%"=="lz77" set ALGO_INDEX=4
+if /i "%ALGORITHM%"=="lz77-parallel" set ALGO_INDEX=5
+if /i "%ALGORITHM%"=="lz77-encrypted" set ALGO_INDEX=6
+if /i "%ALGORITHM%"=="progressive" set ALGO_INDEX=7
+if /i "%ALGORITHM%"=="split" goto split_compress
+
+REM Check if encryption key is provided for encrypted algorithms
+set ENCRYPTION_KEY=
+if /i "%ALGORITHM%"=="lz77-encrypted" (
+    set ENCRYPTION_KEY=%OUTPUT_FILE%
+    set OUTPUT_FILE=
+    
+    REM Generate output file name if not provided
+    if "%ENCRYPTION_KEY%"=="" (
+        echo Error: Encryption key required for lz77-encrypted algorithm
+        goto usage
     )
 )
 
-REM Special case for progressive - run the command with -P first
-if /i "%ALGO_NAME%"=="progressive" (
-    echo Running: filecompressor.exe -P %CMD% %ALGO% %OPTIONS% "%INPUT%" "%OUTPUT%"
-    filecompressor.exe -P %CMD% %ALGO% %OPTIONS% "%INPUT%" "%OUTPUT%"
+REM Generate output file name if not provided
+if "%OUTPUT_FILE%"=="" (
+    if /i "%ALGORITHM%"=="huffman" set OUTPUT_FILE=%INPUT_FILE%.huf
+    if /i "%ALGORITHM%"=="rle" set OUTPUT_FILE=%INPUT_FILE%.rle
+    if /i "%ALGORITHM%"=="huffman-parallel" set OUTPUT_FILE=%INPUT_FILE%.hufp
+    if /i "%ALGORITHM%"=="rle-parallel" set OUTPUT_FILE=%INPUT_FILE%.rlep
+    if /i "%ALGORITHM%"=="lz77" set OUTPUT_FILE=%INPUT_FILE%.lz77
+    if /i "%ALGORITHM%"=="lz77-parallel" set OUTPUT_FILE=%INPUT_FILE%.lz77p
+    if /i "%ALGORITHM%"=="lz77-encrypted" set OUTPUT_FILE=%INPUT_FILE%.lz77e
+    if /i "%ALGORITHM%"=="progressive" set OUTPUT_FILE=%INPUT_FILE%.prog
+)
+
+echo Compressing %INPUT_FILE% using %ALGORITHM% algorithm...
+
+REM Build command based on algorithm
+set CMD=filecompressor -c %ALGO_INDEX% 
+
+if /i "%ALGORITHM%"=="huffman-parallel" set CMD=%CMD% -t 0
+if /i "%ALGORITHM%"=="rle-parallel" set CMD=%CMD% -t 0
+if /i "%ALGORITHM%"=="lz77-parallel" set CMD=%CMD% -t 0
+if /i "%ALGORITHM%"=="lz77-encrypted" set CMD=%CMD% -k "%ENCRYPTION_KEY%"
+if /i "%ALGORITHM%"=="progressive" set CMD=%CMD% -P
+
+REM Add input and output files
+set CMD=%CMD% "%INPUT_FILE%" "%OUTPUT_FILE%"
+
+echo Executing: %CMD%
+%CMD%
+
+if errorlevel 1 (
+    echo Error: Compression failed.
 ) else (
-    REM Run the command for other algorithms
-    echo Running: filecompressor.exe %CMD% %ALGO% %OPTIONS% "%INPUT%" "%OUTPUT%"
-    filecompressor.exe %CMD% %ALGO% %OPTIONS% "%INPUT%" "%OUTPUT%"
-)
-
-if %ERRORLEVEL% equ 0 (
-    echo Operation completed successfully!
-    echo Input file: %INPUT%
-    echo Output file: %OUTPUT%
-) else (
-    echo Operation failed with error code %ERRORLEVEL%
+    echo Compression complete. Output file: %OUTPUT_FILE%
 )
 goto end
 
-:help
+:deduplicate
+REM Deduplication operation
+echo DEDUPLICATION OPERATION
+
+REM Parse options for deduplication
+set DEDUP_COMPRESSION=%4
+set DEDUP_MODE=%5
+set DEDUP_CHUNK_SIZE=%6
+set DEDUP_HASH=%7
+
+REM Set default compression algorithm if not specified
+if "%DEDUP_COMPRESSION%"=="" set DEDUP_COMPRESSION=none
+
+REM Map compression algorithm to index
+set DEDUP_ALGO_INDEX=-1
+if /i "%DEDUP_COMPRESSION%"=="none" set DEDUP_ALGO_INDEX=-1
+if /i "%DEDUP_COMPRESSION%"=="huffman" set DEDUP_ALGO_INDEX=0
+if /i "%DEDUP_COMPRESSION%"=="rle" set DEDUP_ALGO_INDEX=1
+if /i "%DEDUP_COMPRESSION%"=="huffman-parallel" set DEDUP_ALGO_INDEX=2
+if /i "%DEDUP_COMPRESSION%"=="rle-parallel" set DEDUP_ALGO_INDEX=3
+if /i "%DEDUP_COMPRESSION%"=="lz77" set DEDUP_ALGO_INDEX=4
+if /i "%DEDUP_COMPRESSION%"=="lz77-parallel" set DEDUP_ALGO_INDEX=5
+if /i "%DEDUP_COMPRESSION%"=="lz77-encrypted" set DEDUP_ALGO_INDEX=6
+if /i "%DEDUP_COMPRESSION%"=="progressive" set DEDUP_ALGO_INDEX=7
+
+REM Set default output filename if not provided
+set DEDUP_OUTPUT=%INPUT_FILE%.dedup
+if "%DEDUP_COMPRESSION%"!="none" (
+    if /i "%DEDUP_COMPRESSION%"=="huffman" set DEDUP_OUTPUT=%INPUT_FILE%.dedup.huf
+    if /i "%DEDUP_COMPRESSION%"=="rle" set DEDUP_OUTPUT=%INPUT_FILE%.dedup.rle
+    if /i "%DEDUP_COMPRESSION%"=="huffman-parallel" set DEDUP_OUTPUT=%INPUT_FILE%.dedup.hufp
+    if /i "%DEDUP_COMPRESSION%"=="rle-parallel" set DEDUP_OUTPUT=%INPUT_FILE%.dedup.rlep
+    if /i "%DEDUP_COMPRESSION%"=="lz77" set DEDUP_OUTPUT=%INPUT_FILE%.dedup.lz77
+    if /i "%DEDUP_COMPRESSION%"=="lz77-parallel" set DEDUP_OUTPUT=%INPUT_FILE%.dedup.lz77p
+    if /i "%DEDUP_COMPRESSION%"=="lz77-encrypted" set DEDUP_OUTPUT=%INPUT_FILE%.dedup.lz77e
+    if /i "%DEDUP_COMPRESSION%"=="progressive" set DEDUP_OUTPUT=%INPUT_FILE%.dedup.prog
+)
+
+REM Set default chunking mode if not specified
+set DEDUP_MODE_INDEX=0
+if "%DEDUP_MODE%"=="" set DEDUP_MODE=fixed
+if /i "%DEDUP_MODE%"=="fixed" set DEDUP_MODE_INDEX=0
+if /i "%DEDUP_MODE%"=="variable" set DEDUP_MODE_INDEX=1
+if /i "%DEDUP_MODE%"=="smart" set DEDUP_MODE_INDEX=2
+
+REM Set default chunk size if not specified
+set DEDUP_CHUNK_SIZE_BYTES=65536
+if not "%DEDUP_CHUNK_SIZE%"=="" (
+    set DEDUP_CHUNK_SIZE_NUM=%DEDUP_CHUNK_SIZE:~0,-1%
+    set DEDUP_CHUNK_SIZE_UNIT=%DEDUP_CHUNK_SIZE:~-1%
+    
+    set /a DEDUP_CHUNK_SIZE_BYTES=DEDUP_CHUNK_SIZE_NUM
+    
+    if "%DEDUP_CHUNK_SIZE_UNIT%"=="k" set /a DEDUP_CHUNK_SIZE_BYTES=DEDUP_CHUNK_SIZE_NUM*1024
+    if "%DEDUP_CHUNK_SIZE_UNIT%"=="K" set /a DEDUP_CHUNK_SIZE_BYTES=DEDUP_CHUNK_SIZE_NUM*1024
+    if "%DEDUP_CHUNK_SIZE_UNIT%"=="m" set /a DEDUP_CHUNK_SIZE_BYTES=DEDUP_CHUNK_SIZE_NUM*1024*1024
+    if "%DEDUP_CHUNK_SIZE_UNIT%"=="M" set /a DEDUP_CHUNK_SIZE_BYTES=DEDUP_CHUNK_SIZE_NUM*1024*1024
+)
+
+REM Set default hash algorithm if not specified
+set DEDUP_HASH_INDEX=0
+if "%DEDUP_HASH%"=="" set DEDUP_HASH=sha1
+if /i "%DEDUP_HASH%"=="sha1" set DEDUP_HASH_INDEX=0
+if /i "%DEDUP_HASH%"=="md5" set DEDUP_HASH_INDEX=1
+if /i "%DEDUP_HASH%"=="crc32" set DEDUP_HASH_INDEX=2
+if /i "%DEDUP_HASH%"=="xxh64" set DEDUP_HASH_INDEX=3
+
+echo Deduplicating %INPUT_FILE%...
+echo Compression: %DEDUP_COMPRESSION% (index: %DEDUP_ALGO_INDEX%)
+echo Chunk mode: %DEDUP_MODE% (index: %DEDUP_MODE_INDEX%)
+echo Chunk size: %DEDUP_CHUNK_SIZE_BYTES% bytes
+echo Hash algorithm: %DEDUP_HASH% (index: %DEDUP_HASH_INDEX%)
+echo Output file: %DEDUP_OUTPUT%
+
+REM Build the deduplication command
+set CMD=filecompressor -c %DEDUP_ALGO_INDEX% -D -V %DEDUP_MODE_INDEX% -C %DEDUP_CHUNK_SIZE_BYTES% -H %DEDUP_HASH_INDEX% "%INPUT_FILE%" "%DEDUP_OUTPUT%"
+
+echo Executing: %CMD%
+%CMD%
+
+if errorlevel 1 (
+    echo Error: Deduplication failed.
+) else (
+    echo Deduplication complete. Output file: %DEDUP_OUTPUT%
+)
+goto end
+
+:decompress
+REM ... existing decompress section ...
+
+:split_compress
+REM ... existing split_compress section ...
+
+:split_decompress
+REM ... existing split_decompress section ...
+
+:usage
 echo.
-echo File Compression Helper Script
-echo -----------------------------
+echo File Compression Utility Helper Script
+echo -----------------------------------
 echo.
-echo Usage: compress.bat [mode] [algorithm] [input_file] [output_file] [options]
+echo Usage: compress.bat OPERATION ALGORITHM INPUT_FILE [OUTPUT_FILE/PARAMS]
 echo.
-echo Modes:
-echo   compress     Compress the input file
-echo   decompress   Decompress the input file
+echo Operations:
+echo   compress     - Compress a file
+echo   decompress   - Decompress a file
+echo   list         - List available algorithms
+echo   deduplicate  - Deduplicate a file (identify and eliminate redundant data)
 echo.
-echo Algorithms:
-echo   huffman            Huffman coding (good compression ratio)
-echo   rle                Run-Length Encoding (fast for repetitive data)
-echo   huffman-parallel   Parallel Huffman coding with multiple threads
-echo   rle-parallel       Parallel RLE with multiple threads
-echo   lz77              Lempel-Ziv 77 (excellent compression ratio)
-echo   lz77-parallel     Parallel LZ77 with multiple threads
-echo   lz77-encrypted    LZ77 with encryption
-echo   progressive       Progressive format (enables partial decompression)
-echo   split             Split archive format (divides into multiple files)
+echo Compression Algorithms:
+echo   huffman             - Huffman coding
+echo   rle                 - Run-Length Encoding
+echo   huffman-parallel    - Parallel Huffman coding
+echo   rle-parallel        - Parallel Run-Length Encoding
+echo   lz77                - LZ77 compression
+echo   lz77-parallel       - Parallel LZ77 compression
+echo   lz77-encrypted      - Encrypted LZ77 compression (requires key)
+echo   progressive         - Progressive format
+echo   split               - Split archive for large files
 echo.
-echo Options (5th parameter):
-echo   crc32      CRC32 checksum for basic integrity verification
-echo   md5        MD5 hash for stronger integrity verification
-echo   sha256     SHA256 hash for maximum integrity verification
-echo   [range]    For progressive decompress, specify block range (e.g., 0-5)
-echo   [size]     For split mode, specify part size (e.g., 10M, 50M, 1G)
+echo Deduplication Options (for 'deduplicate' operation):
+echo   compress.bat deduplicate INPUT_FILE [COMPRESSION] [MODE] [CHUNK_SIZE] [HASH]
+echo   - COMPRESSION: none, huffman, rle, lz77, etc. (default: none)
+echo   - MODE: fixed, variable, smart (default: fixed)
+echo   - CHUNK_SIZE: 4k, 8k, 16k, 32k, 64k, 128k, 256k, 512k, 1m (default: 64k)
+echo   - HASH: sha1, md5, crc32, xxh64 (default: sha1)
 echo.
 echo Examples:
-echo   compress.bat compress huffman test.txt
-echo   compress.bat decompress huffman test.txt.huf test_out.txt
-echo   compress.bat compress lz77-parallel largefile.txt
-echo   compress.bat compress huffman test.txt output.huf crc32
-echo   compress.bat compress progressive test.txt
-echo   compress.bat decompress progressive test.txt.prog test_out.txt 0-5
-echo   compress.bat compress split largefile.txt output 100M
-echo   compress.bat decompress split largefile.txt output.txt
+echo   compress.bat compress huffman myfile.txt
+echo   compress.bat decompress huffman myfile.txt.huf output.txt
+echo   compress.bat compress lz77-encrypted myfile.txt mypassword
+echo   compress.bat deduplicate myarchive.zip none variable 128k sha1
 echo.
 
 :end

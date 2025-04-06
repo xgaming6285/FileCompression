@@ -79,7 +79,10 @@ TestScenario test_scenarios[] = {
     {"Encryption Security", "Tests security features and encryption strength", 1},
     {"Error Handling", "Tests program behavior with corrupted files and edge cases", 1},
     {"Progressive Compression", "Tests compression of growing files over time", 1},
-    {"System Impact", "Measures system resource impact during operation", 1}
+    {"System Impact", "Measures system resource impact during operation", 1},
+    {"Deduplication", "Tests data deduplication algorithms on files with repeated content", 1},
+    {"Split Archive", "Tests splitting and reassembling large archives across multiple files", 1},
+    {"Variable Chunking", "Tests content-defined chunking for optimal deduplication", 1}
 };
 
 // Extended result structure
@@ -124,6 +127,9 @@ int verify_file_integrity(const char* original, const char* decompressed);
 void run_feature_tests(BenchmarkResult results[], int* result_count);
 void calculate_scores(BenchmarkResult* result);
 void run_specialized_tests();
+int test_deduplication();
+int test_split_archive();
+int test_progressive_compression();
 
 // Memory measurement functions
 double measure_memory_usage();
@@ -1249,43 +1255,31 @@ void clean_temp_files() {
 
 // Runs specialized tests to evaluate specific features
 void run_specialized_tests() {
-    printf("  Testing parallel scaling across CPU cores...\n");
-    test_parallel_scaling();
+    printf("  Running specialized tests...\n");
     
-    printf("  Testing error handling and recovery...\n");
-    test_error_handling();
-    
-    printf("  Testing encryption effectiveness...\n");
-    // This would test the encryption features
-    char cmd[MAX_CMD_LENGTH];
-    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 3 benchmark_text.txt benchmark_text.encrypted");
-    double time_taken, memory_used, cpu_usage;
-    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
-        printf("    ✅ Encryption test completed\n");
-    } else {
-        printf("    ❌ Encryption test failed\n");
+    // Test parallel scaling
+    if (TEST_PARALLEL_PERFORMANCE) {
+        printf("\n  Testing parallel performance scaling...\n");
+        test_parallel_scaling();
     }
     
-    printf("  Testing progressive file compression...\n");
-    // Create a file that gradually grows
-    FILE* f = fopen("benchmark_progressive.txt", "w");
-    if (f) {
-        for (int i = 0; i < 5; i++) {
-            // Add 1MB of data each iteration
-            for (int j = 0; j < 5000; j++) {
-                fprintf(f, "Progressive test data batch %d, line %d with some content: %08X\n", i, j, rand());
-            }
-            fflush(f);
-            
-            // Compress the file at each stage
-            snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 0 benchmark_progressive.txt benchmark_progressive.huf.%d", i);
-            if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
-                printf("    ✅ Progressive compression stage %d: %.2f seconds, %.2f MB\n", 
-                       i, time_taken, memory_used);
-            }
-        }
-        fclose(f);
+    // Test error handling
+    if (TEST_ERROR_HANDLING) {
+        printf("\n  Testing error handling...\n");
+        test_error_handling();
     }
+    
+    // Test deduplication
+    printf("\n  Testing deduplication algorithms...\n");
+    test_deduplication();
+    
+    // Test split archive
+    printf("\n  Testing split archive functionality...\n");
+    test_split_archive();
+    
+    // Test progressive compression
+    printf("\n  Testing progressive compression...\n");
+    test_progressive_compression();
 }
 
 // Test parallel algorithm scaling across different CPU core counts
@@ -1834,4 +1828,226 @@ void calculate_scores(BenchmarkResult* result) {
     
     // Cap at 100
     if (result->score_overall > 100) result->score_overall = 100;
+}
+
+// Test deduplication functionality
+int test_deduplication() {
+    char cmd[MAX_CMD_LENGTH];
+    double time_taken, memory_used, cpu_usage;
+    double sizes[3] = {0};
+    double ratios[3] = {0};
+    
+    printf("    Testing deduplication with various modes...\n");
+    
+    // Create a file with high duplication for testing
+    printf("    Creating test files with duplicated content...\n");
+    
+    // Create a file with exact duplicates
+    FILE* f = fopen("benchmark_exact_duplicates.txt", "w");
+    if (f) {
+        // Create 5MB file with repeated blocks
+        const char* repeated_text = "This is a block of text that will be repeated many times to test deduplication. "
+                                   "We want to ensure the deduplication algorithm can identify and remove redundant data. "
+                                   "The more efficient the algorithm, the better compression we should achieve. ";
+        for (int i = 0; i < 10000; i++) {
+            fprintf(f, "%s", repeated_text);
+        }
+        fclose(f);
+    }
+    
+    // Create a file with variable duplicates
+    f = fopen("benchmark_variable_duplicates.txt", "w");
+    if (f) {
+        // Create patterns with slight variations
+        for (int i = 0; i < 10000; i++) {
+            fprintf(f, "This is block %d with some repeated content. The content is mostly the same in each block, "
+                      "but with small variations to test variable-sized chunking algorithms. %08X\n", i, i);
+        }
+        fclose(f);
+    }
+    
+    // Fixed-size chunking
+    printf("    Testing fixed-size chunking deduplication...\n");
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 0 -d -fixed benchmark_exact_duplicates.txt benchmark_dedup_fixed.huf");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      Fixed-size chunking: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+        sizes[0] = get_file_size("benchmark_dedup_fixed.huf");
+        double original_size = get_file_size("benchmark_exact_duplicates.txt");
+        ratios[0] = original_size / sizes[0];
+        printf("      Fixed-size chunking: Compression ratio: %.2fx\n", ratios[0]);
+    }
+    
+    // Variable-size chunking
+    printf("    Testing variable-size chunking deduplication...\n");
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 0 -d -variable benchmark_variable_duplicates.txt benchmark_dedup_variable.huf");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      Variable-size chunking: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+        sizes[1] = get_file_size("benchmark_dedup_variable.huf");
+        double original_size = get_file_size("benchmark_variable_duplicates.txt");
+        ratios[1] = original_size / sizes[1];
+        printf("      Variable-size chunking: Compression ratio: %.2fx\n", ratios[1]);
+    }
+    
+    // Smart chunking
+    printf("    Testing smart chunking deduplication...\n");
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 0 -d -smart benchmark_mixed.dat benchmark_dedup_smart.huf");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      Smart chunking: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+        sizes[2] = get_file_size("benchmark_dedup_smart.huf");
+        double original_size = get_file_size("benchmark_mixed.dat");
+        ratios[2] = original_size / sizes[2];
+        printf("      Smart chunking: Compression ratio: %.2fx\n", ratios[2]);
+    }
+    
+    // Test different hash algorithms
+    printf("    Testing different hash algorithms for deduplication...\n");
+    
+    // SHA1
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 0 -d -sha1 benchmark_exact_duplicates.txt benchmark_dedup_sha1.huf");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      SHA1 hashing: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+    }
+    
+    // XXH64 (faster hash)
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 0 -d -xxh64 benchmark_exact_duplicates.txt benchmark_dedup_xxh64.huf");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      XXH64 hashing: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+    }
+    
+    printf("    Deduplication test results:\n");
+    printf("      Fixed-size chunking ratio: %.2fx\n", ratios[0]);
+    printf("      Variable-size chunking ratio: %.2fx\n", ratios[1]);
+    printf("      Smart chunking ratio: %.2fx\n", ratios[2]);
+    
+    return 0;
+}
+
+// Test split archive functionality
+int test_split_archive() {
+    char cmd[MAX_CMD_LENGTH];
+    double time_taken, memory_used, cpu_usage;
+    
+    printf("    Testing split archive functionality...\n");
+    
+    // Create a large test file if it doesn't exist already
+    if (access("benchmark_large.dat", F_OK) != 0) {
+        printf("    Creating large test file for split archive testing...\n");
+        FILE* f = fopen("benchmark_large.dat", "wb");
+        if (f) {
+            // Generate 10MB of mixed data
+            for (int i = 0; i < 10; i++) {
+                // Text section
+                for (int j = 0; j < 1000; j++) {
+                    fprintf(f, "Section %d-%d: This is text content that would appear in a document with some varying elements %08X.\n", i, j, rand());
+                }
+                
+                // Binary section
+                for (int j = 0; j < 900000; j++) {
+                    fputc(rand() % 256, f);
+                }
+            }
+            fclose(f);
+        }
+    }
+    
+    // Test split archive with various part sizes
+    // 1MB parts
+    printf("    Testing 1MB split parts...\n");
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 0 -s -part 1MB benchmark_large.dat benchmark_split_1mb");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      1MB parts: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+    }
+    
+    // Test decompression from split archive
+    printf("    Testing decompression from 1MB split parts...\n");
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -d -s benchmark_split_1mb benchmark_restored_1mb.dat");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      Decompression from 1MB parts: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+        
+        // Verify integrity
+        int integrity = verify_file_integrity("benchmark_large.dat", "benchmark_restored_1mb.dat");
+        printf("      File integrity check: %s\n", integrity ? "Passed" : "Failed");
+    }
+    
+    // Test with different algorithms
+    printf("    Testing split archive with different compression algorithms...\n");
+    
+    // LZ77 algorithm
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 2 -s -part 2MB benchmark_large.dat benchmark_split_lz77");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      LZ77 compression: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+    }
+    
+    // Test with checksum verification
+    printf("    Testing split archive with checksum verification...\n");
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 0 -s -checksum crc32 -part 2MB benchmark_large.dat benchmark_split_checksum");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      With CRC32 checksum: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+    }
+    
+    return 0;
+}
+
+// Test progressive compression
+int test_progressive_compression() {
+    char cmd[MAX_CMD_LENGTH];
+    double time_taken, memory_used, cpu_usage;
+    
+    printf("    Testing progressive compression functionality...\n");
+    
+    // Create a test file for progressive compression if it doesn't exist
+    if (access("benchmark_progressive.txt", F_OK) != 0) {
+        printf("    Creating test file for progressive compression...\n");
+        FILE* f = fopen("benchmark_progressive.txt", "w");
+        if (f) {
+            // Generate initial content
+            for (int i = 0; i < 10000; i++) {
+                fprintf(f, "Initial content line %d. This will be used for progressive compression testing.\n", i);
+            }
+            fclose(f);
+        }
+    }
+    
+    // Test basic progressive compression
+    printf("    Testing basic progressive compression...\n");
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 0 -p benchmark_progressive.txt benchmark_progressive.huf");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      Basic progressive compression: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+    }
+    
+    // Test partial decompression (specific blocks)
+    printf("    Testing partial decompression of progressive archive...\n");
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -d -p -range 1-5 benchmark_progressive.huf benchmark_progressive_partial.txt");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      Partial decompression (blocks 1-5): Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+    }
+    
+    // Test with streaming optimization flag
+    printf("    Testing progressive compression with streaming optimization...\n");
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 0 -p -stream benchmark_progressive.txt benchmark_progressive_stream.huf");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      With streaming optimization: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+    }
+    
+    // Test with encryption
+    printf("    Testing encrypted progressive compression...\n");
+    snprintf(cmd, sizeof(cmd), "filecompressor.exe -c 0 -p -e secret_key benchmark_progressive.txt benchmark_progressive_encrypted.huf");
+    
+    if (execute_command(cmd, &time_taken, &memory_used, &cpu_usage) == 0) {
+        printf("      With encryption: Time: %.2f seconds, Memory: %.2f MB\n", time_taken, memory_used);
+    }
+    
+    return 0;
 } 
