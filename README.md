@@ -321,6 +321,25 @@ filecompressor -c 6 -k "my_secure_password" confidential.txt
 </table>
 </div>
 
+## 📊 Benchmark Results
+
+<div align="center">
+  <img src="https://media.giphy.com/media/l46Cy1rHbQ92uuLXa/giphy.gif" width="250" alt="Benchmark Animation">
+</div>
+
+Our compression tool outperforms many standard utilities across several metrics:
+
+- ⚡ **Faster compression** and decompression with parallel algorithms
+- 📦 **Better compression ratios** on text files with our Huffman implementation
+- 💾 **Lower memory usage** across all file types
+- 🔄 **Superior handling** of repetitive data patterns
+
+<div align="center">
+  <a href="benchmark_chart.html"><img src="https://img.shields.io/badge/📊-View%20Full%20Benchmark%20Results-blue" height="30" alt="View Benchmarks"></a>
+</div>
+
+For detailed performance comparisons and interactive charts, view our [full benchmark results](benchmark_chart.html).
+
 ## ❓ Troubleshooting
 
 <div align="center">

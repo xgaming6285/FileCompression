@@ -4,10 +4,19 @@
 # Keep source code and build scripts
 !*.c
 !*.h
-!*.bat
 !Makefile
-!README.md
 !.gitignore
+
+# Keep specific batch files (but exclude benchmark batch files)
+!build.bat
+!compress.bat
+!install.bat
+
+# Keep only specific HTML file
+!benchmark_chart.html
+
+# Keep only specific markdown file
+!README.md
 
 # Ignore object files and executables
 *.o
@@ -15,6 +24,18 @@
 *.exe
 *.out
 *.app
+
+# Ignore generated data files
+*.dat
+*.bin
+*.csv
+*.md
+benchmark_*.txt
+benchmark_progressive.txt
+benchmark_summary.txt
+benchmark_incremental.dat
+benchmark_*.bin
+error_output.txt
 
 # Ignore compressed files
 *.huf
@@ -25,13 +46,21 @@
 *.lz77e
 *.hufp
 
-# Ignore test files
+# Ignore all test files
 test*.txt
 large*.txt
 *test*
+verylarge*.txt
 
-# Keep specific test files needed for examples
-!test.txt
+# Ignore all HTML files (except the one we want to keep)
+*.html
+!benchmark_chart.html
+
+# Ignore all benchmark batch files
+benchmark*.bat
+*benchmark*.bat
+run_benchmark*.bat
+open_benchmark*.bat
 
 # Ignore other common files
 .DS_Store
