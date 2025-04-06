@@ -337,7 +337,7 @@ Our compression tool outperforms many standard utilities across several metrics:
 <details>
 <summary><div align="center"><strong>📊 Click to View Full Benchmark Results</strong></div></summary>
 <div align="center">
-  <img src="benchmark_results.png" alt="Benchmark Results" width="100%">
+  <img src="benchmark_results_chart.png" alt="Benchmark Results" width="100%">
 </div>
 </details>
 

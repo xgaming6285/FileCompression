@@ -62,4 +62,4 @@ open_benchmark*.bat
 # Ignore other common files
 .DS_Store
 Thumbs.db 
-!benchmark_results.png
+!benchmark_results_chart.png
