@@ -12,9 +12,6 @@
 !compress.bat
 !install.bat
 
-# Keep only specific HTML file
-!benchmark_chart.html
-
 # Keep only specific markdown file
 !README.md
 
@@ -65,3 +62,4 @@ open_benchmark*.bat
 # Ignore other common files
 .DS_Store
 Thumbs.db 
+!benchmark_results.png

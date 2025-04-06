@@ -334,10 +334,12 @@ Our compression tool outperforms many standard utilities across several metrics:
 - 💾 **Lower memory usage** across all file types
 - 🔄 **Superior handling** of repetitive data patterns
 
+<details>
+<summary><div align="center"><strong>📊 Click to View Full Benchmark Results</strong></div></summary>
 <div align="center">
-  <a href="benchmark_chart.html"><img src="https://img.shields.io/badge/📊-View%20Full%20Benchmark%20Results-blue" height="30" alt="View Benchmarks"></a>
+  <img src="benchmark_results.png" alt="Benchmark Results" width="100%">
 </div>
-
+</details>
 
 ## ❓ Troubleshooting
 
