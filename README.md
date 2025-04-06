@@ -335,7 +335,7 @@ Our compression tool outperforms many standard utilities across several metrics:
 - 🔄 **Superior handling** of repetitive data patterns
 
 <div align="center">
-  <a href="https://raw.githack.com/xgaming6285/FileCompression/main/benchmark_chart.html" target="_blank"><img src="https://img.shields.io/badge/📊-View%20Full%20Benchmark%20Results-blue" height="30" alt="View Benchmarks"></a>
+  <a href="benchmark_chart.html"><img src="https://img.shields.io/badge/📊-View%20Full%20Benchmark%20Results-blue" height="30" alt="View Benchmarks"></a>
 </div>
 
 
