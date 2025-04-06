@@ -3,11 +3,11 @@ setlocal
 
 REM Set compiler options
 set CC=gcc
-set CFLAGS=-Wall -Wextra -O2 -pthread
+set CFLAGS=-Wall -Wextra -O2 -pthread -std=c11
 set LDFLAGS=-pthread
 
 REM Source files
-set SOURCES=filecompressor.c compression.c huffman.c rle.c lz77.c encryption.c parallel.c lz77_parallel.c large_file_utils.c
+set SOURCES=filecompressor.c compression.c huffman.c rle.c lz77.c encryption.c parallel.c lz77_parallel.c large_file_utils.c progressive.c split_archive.c
 
 REM Test files
 set TEST_SOURCES=test_large_file.c
@@ -21,10 +21,11 @@ if "%1"=="help" goto help
 :build
 echo Building filecompressor...
 %CC% %CFLAGS% -c %SOURCES%
-%CC% %LDFLAGS% -o filecompressor.exe *.o
+REM Link with explicitly naming all object files to avoid any issues
+%CC% filecompressor.o compression.o huffman.o rle.o lz77.o encryption.o parallel.o lz77_parallel.o large_file_utils.o progressive.o split_archive.o %LDFLAGS% -o filecompressor.exe
 echo Building tests...
 %CC% %CFLAGS% -c %TEST_SOURCES%
-%CC% %LDFLAGS% -o test_large_file.exe test_large_file.o compression.o huffman.o rle.o lz77.o encryption.o parallel.o lz77_parallel.o large_file_utils.o
+%CC% test_large_file.o large_file_utils.o %LDFLAGS% -o test_large_file.exe
 echo Build completed.
 goto end
 
@@ -37,12 +38,12 @@ goto end
 
 :debug
 echo Building with debug symbols...
-set CFLAGS=%CFLAGS% -g -O0
+set CFLAGS=%CFLAGS% -g -O0 -DDEBUG
 goto build
 
 :optimize
 echo Building with maximum optimization...
-set CFLAGS=%CFLAGS% -O3 -march=native
+set CFLAGS=%CFLAGS% -O3 -march=native -DNDEBUG
 goto build
 
 :help

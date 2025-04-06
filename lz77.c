@@ -80,12 +80,13 @@ static void find_longest_match(const uint8_t *data, size_t data_size, size_t cur
         // If this match is longer than the previous best match
         if (current_match_length >= MIN_MATCH && current_match_length > *match_length) {
             *match_offset = current_pos - i;
-            *match_length = current_match_length;
             
-            // Cap match length to fit in uint8_t
-            if (*match_length > 255) {
-                *match_length = 255;
+            // Cap match length to maximum uint8_t value
+            if (current_match_length >= UINT8_MAX) {
+                *match_length = UINT8_MAX;
                 break;
+            } else {
+                *match_length = (uint8_t)current_match_length;
             }
         }
     }

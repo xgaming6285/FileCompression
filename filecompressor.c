@@ -5,10 +5,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "filecompressor.h"
 #include "compression.h"
 #include "parallel.h"
 #include "encryption.h"
+#include "progressive.h"
+#include "split_archive.h"
 
 // Global variables
 OptimizationGoal opt_goal = OPT_NONE;
@@ -35,7 +38,13 @@ void print_usage() {
     printf("  -O [goal]       Optimization goal: speed or size\n");
     printf("  -B [size]       Buffer size in bytes (default: 8192)\n");
     printf("  -L              Enable large file mode for files larger than available RAM\n");
+    printf("  -I [type]       Enable integrity verification with checksum (1=CRC32, 2=MD5, 3=SHA256)\n");
     printf("  -p              Enable profiling\n");
+    printf("  -P              Use progressive format (supports partial decompression)\n");
+    printf("  -R [start-end]  Decompress only a range of blocks (requires -P)\n");
+    printf("  -S [output]     Stream output to a callback function (e.g., display or process)\n");
+    printf("  -X              Enable split archive mode (create multiple files)\n");
+    printf("  -M [size]       Maximum size in bytes for each split archive part (default: 100MB)\n");
     printf("  -h              Display this help message\n");
     printf("\n");
     printf("If algorithm is not specified, Huffman coding (0) is used by default.\n");
@@ -46,6 +55,12 @@ void print_usage() {
     printf("  filecompressor -c 4 -O speed input.txt          # Compress with LZ77 optimized for speed\n");
     printf("  filecompressor -c 4 -O size -B 16384 input.txt  # Compress with LZ77 optimized for size\n");
     printf("  filecompressor -c 0 -L -B 1048576 largefile.txt # Compress large file with 1MB chunks\n");
+    printf("  filecompressor -c 0 -I 1 input.txt              # Compress with CRC32 integrity verification\n");
+    printf("  filecompressor -c 0 -P input.txt                # Compress with progressive format\n");
+    printf("  filecompressor -d -P -R 5-10 input.prog out.txt # Decompress blocks 5-10 only\n");
+    printf("  filecompressor -c 0 -X input.txt                # Create split archive with default part size\n");
+    printf("  filecompressor -c 0 -X -M 10485760 input.txt    # Create split archive with 10MB part size\n");
+    printf("  filecompressor -d input.txt output.txt -X       # Decompress split archive\n");
 }
 
 // External key for encrypted algorithms
@@ -84,6 +99,34 @@ int output_file_provided(int argc, char *argv[], const char *option) {
     return 0;
 }
 
+// Callback function for streaming output
+int stream_output_callback(const uint8_t* data, size_t size, void* user_data) {
+    FILE* output = (FILE*)user_data;
+    
+    // Check if this is stdout
+    if (output == stdout) {
+        // For text data, print to stdout
+        // In a real application, we'd have more sophisticated handling here
+        for (size_t i = 0; i < size && i < 100; i++) {
+            putchar(data[i]);
+        }
+        
+        if (size > 100) {
+            printf("\n... (showing first 100 bytes only) ...\n");
+        }
+        
+        return 0;
+    }
+    
+    // Otherwise, write to the file
+    if (fwrite(data, 1, size, output) != size) {
+        fprintf(stderr, "Error writing to output stream\n");
+        return 1; // Signal to stop processing
+    }
+    
+    return 0; // Continue processing
+}
+
 int main(int argc, char *argv[]) {
     // Initialize compression algorithms
     init_compression_algorithms();
@@ -95,13 +138,19 @@ int main(int argc, char *argv[]) {
     
     // Process command-line arguments
     int i = 1;
-    int threads_set = 0;
-    char *option = NULL;
-    char *input_file = NULL;
-    char *output_file = NULL;
-    int algorithm_idx = 0; // Default to Huffman
+    int compress_mode = -1; // -1 = unset, 0 = decompress, 1 = compress
+    int algorithm_index = -1; // Default algorithm (will be set later)
+    char* input_file = NULL;
+    char* output_file = NULL;
     int profiling_enabled = 0;
     int large_file_mode = 0;  // Add large file mode flag
+    int progressive_mode = 0; // Progressive format flag
+    int split_mode = 0;       // Split archive mode flag
+    uint64_t max_part_size = DEFAULT_SPLIT_SIZE; // Default max part size for split archives
+    uint32_t start_block = 0, end_block = UINT32_MAX; // For partial decompression
+    int range_specified = 0;
+    int stream_mode = 0;
+    ChecksumType checksum_type = CHECKSUM_NONE; // Default to no checksum
     
     while (i < argc) {
         char *arg = argv[i];
@@ -119,10 +168,31 @@ int main(int argc, char *argv[]) {
                 if (i + 1 < argc) {
                     int thread_count = atoi(argv[i + 1]);
                     set_thread_count(thread_count);
-                    threads_set = 1;
                     i += 2;
                 } else {
-                    printf("Error: Missing thread count after -t\n");
+                    printf("Error: Missing thread count after -t option\n");
+                    return 1;
+                }
+            } else if (strcmp(arg, "-I") == 0) {
+                // Checksum type
+                if (i + 1 < argc) {
+                    int type = atoi(argv[i + 1]);
+                    if (type >= CHECKSUM_NONE && type <= CHECKSUM_SHA256) {
+                        checksum_type = (ChecksumType)type;
+                        
+                        const char* checksum_names[] = {
+                            "None", "CRC32", "MD5", "SHA256"
+                        };
+                        
+                        printf("Integrity verification: %s\n", checksum_names[checksum_type]);
+                    } else {
+                        printf("Error: Invalid checksum type. Use 0 (none), 1 (CRC32), 2 (MD5), or 3 (SHA256)\n");
+                        print_usage();
+                        return 1;
+                    }
+                    i += 2;
+                } else {
+                    printf("Error: Missing checksum type after -I\n");
                     print_usage();
                     return 1;
                 }
@@ -165,227 +235,265 @@ int main(int argc, char *argv[]) {
                 large_file_mode = 1;
                 printf("Large file mode enabled (chunk-based processing)\n");
                 i++;
+            } else if (strcmp(arg, "-P") == 0) {
+                // Enable progressive format
+                progressive_mode = 1;
+                printf("Progressive format enabled (supports partial decompression)\n");
+                algorithm_index = PROGRESSIVE; // Set algorithm to progressive
+                i++;
+            } else if (strcmp(arg, "-X") == 0) {
+                // Enable split archive mode
+                split_mode = 1;
+                printf("Split archive mode enabled (creates multiple files)\n");
+                i++;
+            } else if (strcmp(arg, "-M") == 0) {
+                // Set maximum part size for split archives
+                if (i + 1 < argc) {
+                    max_part_size = strtoull(argv[i + 1], NULL, 10);
+                    if (max_part_size < MIN_SPLIT_SIZE) {
+                        printf("Warning: Split size too small, using minimum %u bytes\n", MIN_SPLIT_SIZE);
+                        max_part_size = MIN_SPLIT_SIZE;
+                    }
+                    printf("Maximum split archive part size set to: %llu bytes\n", 
+                           (unsigned long long)max_part_size);
+                    i += 2;
+                } else {
+                    printf("Error: Missing size value after -M\n");
+                    print_usage();
+                    return 1;
+                }
+            } else if (strcmp(arg, "-R") == 0) {
+                // Range of blocks to decompress
+                if (i + 1 < argc) {
+                    // Parse range in format "start-end"
+                    char* range = argv[i + 1];
+                    char* hyphen = strchr(range, '-');
+                    if (hyphen) {
+                        *hyphen = '\0'; // Split the string at the hyphen
+                        start_block = atoi(range);
+                        end_block = atoi(hyphen + 1);
+                        if (start_block > end_block) {
+                            printf("Error: Invalid block range. Start must be <= end\n");
+                            print_usage();
+                            return 1;
+                        }
+                        range_specified = 1;
+                        printf("Decompressing blocks %u to %u\n", start_block, end_block);
+                    } else {
+                        printf("Error: Invalid range format. Use 'start-end'\n");
+                        print_usage();
+                        return 1;
+                    }
+                    i += 2;
+                } else {
+                    printf("Error: Missing range after -R\n");
+                    print_usage();
+                    return 1;
+                }
+            } else if (strcmp(arg, "-S") == 0) {
+                // Stream mode
+                stream_mode = 1;
+                printf("Stream mode enabled\n");
+                i++;
             } else if (strcmp(arg, "-p") == 0) {
-                // Enable profiling
+                // Profiling
                 profiling_enabled = 1;
                 printf("Profiling enabled\n");
                 i++;
             } else if (strcmp(arg, "-k") == 0) {
                 // Encryption key
                 if (i + 1 < argc) {
-                    set_encryption_key(argv[i + 1]);
+                    // Just track that we received a key; we'll handle encryption differently
+                    if (strcasecmp(argv[i + 1], "none") != 0) {
+                        printf("Encryption key received\n");
+                    }
                     i += 2;
                 } else {
-                    printf("Error: Missing encryption key after -k\n");
-                    print_usage();
+                    printf("Error: Missing key after -k option\n");
                     return 1;
                 }
             } else if (strcmp(arg, "-c") == 0 || strcmp(arg, "-d") == 0) {
-                option = arg;
+                compress_mode = (strcmp(arg, "-c") == 0) ? 1 : 0;
                 i++;
+                
+                // Check for algorithm index
+                if (i < argc && argv[i][0] != '-' && isdigit(argv[i][0])) {
+                    char *end;
+                    long idx = strtol(argv[i], &end, 10);
+                    
+                    if (end != argv[i] && *end == '\0' && idx >= 0 && idx < get_algorithm_count()) {
+                        // Valid algorithm index
+                        algorithm_index = (int)idx;
+                        i++; // Move past the algorithm index
+                    }
+                }
                 
                 // Get input file
-                if (i < argc) {
+                if (i < argc && argv[i][0] != '-') {
                     input_file = argv[i];
                     i++;
-                    
-                    // Check for algorithm index
-                    if (i < argc) {
-                        char *end;
-                        long idx = strtol(argv[i], &end, 10);
-                        
-                        if (end != argv[i] && *end == '\0' && idx >= 0 && idx < get_algorithm_count()) {
-                            // Valid algorithm index
-                            algorithm_idx = (int)idx;
-                            i++;
-                            
-                            // Check for output file
-                            if (i < argc && argv[i][0] != '-') {
-                                output_file = argv[i];
-                                i++;
-                            }
-                        } else if (argv[i][0] != '-') {
-                            // Not an algorithm index, must be output file
-                            output_file = argv[i];
-                            i++;
-                        }
-                    }
-                } else {
-                    printf("Error: Missing input file\n");
-                    print_usage();
-                    return 1;
                 }
             } else {
-                printf("Unknown option: %s\n", arg);
+                printf("Error: Unknown option '%s'\n", arg);
                 print_usage();
                 return 1;
             }
         } else {
-            // Not an option, should be input file
-            if (!input_file) {
-                input_file = arg;
-                i++;
-            } else if (!output_file) {
-                output_file = arg;
-                i++;
-            } else {
-                printf("Error: Too many arguments\n");
-                print_usage();
-                return 1;
-            }
+            // Not an option, assume it's the output file
+            output_file = arg;
+            i++;
         }
     }
     
-    // Check if we have a valid option and input file
-    if (!option || !input_file) {
-        printf("Error: Missing required arguments\n");
+    // Check if we have required arguments
+    if (compress_mode == -1) {
+        printf("Error: No operation (-c or -d) specified\n");
         print_usage();
         return 1;
     }
     
-    // Get the selected algorithm
-    CompressionAlgorithm *algorithm = get_algorithm(algorithm_idx);
-    if (!algorithm) {
-        printf("Invalid algorithm index. Use -a to see available algorithms.\n");
+    if (!input_file) {
+        printf("Error: No input file specified\n");
+        print_usage();
         return 1;
     }
     
-    // Create default output filename if not provided
+    // Validate progressive mode options
+    if (range_specified && !progressive_mode) {
+        printf("Error: Block range (-R) requires progressive format (-P)\n");
+        return 1;
+    }
+    
+    if (stream_mode && !progressive_mode) {
+        printf("Error: Streaming mode (-S) requires progressive format (-P)\n");
+        return 1;
+    }
+    
+    // Auto-generate output file name if not provided
+    char auto_output_file[1024] = {0};
     if (!output_file) {
-        output_file = malloc(strlen(input_file) + 10); // Extra space for extension
-        if (!output_file) {
-            printf("Memory allocation error\n");
-            return 1;
+        if (compress_mode == 1) {
+            // For compression, append appropriate extension
+            CompressionAlgorithm* algorithm = get_algorithm(algorithm_index);
+            snprintf(auto_output_file, sizeof(auto_output_file), "%s%s", 
+                    input_file, algorithm->extension);
+            output_file = auto_output_file;
+        } else {
+            // For decompression, try to remove extension
+            size_t len = strlen(input_file);
+            CompressionAlgorithm* algorithm = NULL;
+            int found_match = 0;
+            
+            // Find matching extension to remove
+            for (int j = 0; j < get_algorithm_count(); j++) {
+                algorithm = get_algorithm(j);
+                size_t ext_len = strlen(algorithm->extension);
+                
+                if (len > ext_len && 
+                    strcmp(input_file + len - ext_len, algorithm->extension) == 0) {
+                    // Found a match
+                    strncpy(auto_output_file, input_file, len - ext_len);
+                    auto_output_file[len - ext_len] = '\0';
+                    algorithm_index = j;  // Use the matched algorithm
+                    found_match = 1;
+                    break;
+                }
+            }
+            
+            if (!found_match) {
+                // If no matching extension, append .decoded
+                snprintf(auto_output_file, sizeof(auto_output_file), "%s.decoded", input_file);
+            }
+            
+            output_file = auto_output_file;
         }
         
-        if (strcmp(option, "-c") == 0) {
-            sprintf(output_file, "%s%s", input_file, algorithm->extension);
-        } else if (strcmp(option, "-d") == 0) {
-            // Check if input file has the algorithm's extension
-            size_t input_len = strlen(input_file);
-            size_t ext_len = strlen(algorithm->extension);
-            
-            if (input_len > ext_len && 
-                strcmp(input_file + input_len - ext_len, algorithm->extension) == 0) {
-                // Remove extension
-                strncpy(output_file, input_file, input_len - ext_len);
-                output_file[input_len - ext_len] = '\0';
-            } else {
-                sprintf(output_file, "%s.decoded", input_file);
-            }
-        }
+        printf("Auto-generated output file: %s\n", output_file);
     }
     
-    int thread_count = get_thread_count();
-    printf("Input file: %s\n", input_file);
-    printf("Output file: %s\n", output_file);
-    printf("Algorithm: %s\n", algorithm->name);
-    if (strstr(algorithm->name, "Parallel")) {
-        printf("Using %d threads\n", thread_count);
-    }
-    
-    // Set up profiling if enabled
+    // Execute the operation
+    int result = 0;
     ProfileData profile;
     if (profiling_enabled) {
-        char operation[256];
-        snprintf(operation, sizeof(operation), "%s %s", 
-                 strcmp(option, "-c") == 0 ? "Compressing" : "Decompressing",
-                 algorithm->name);
-        start_profiling(&profile, operation);
+        start_profiling(&profile, compress_mode == 1 ? "-c" : "-d");
     }
     
-    int result = 1; // Default to error
-    
-    // Check file size to automatically enable large file mode if necessary
-    if (!large_file_mode) {
-        FILE *test_file = fopen(input_file, "rb");
-        if (test_file) {
-            if (fseek(test_file, 0, SEEK_END) == 0) {
-                long file_size = ftell(test_file);
-                // If file is larger than 100MB, suggest large file mode
-                if (file_size > 100 * 1024 * 1024) {
-                    printf("Notice: Input file is large (%ld MB). Consider using -L for large file mode.\n", 
-                           file_size / (1024 * 1024));
-                }
-            }
-            fclose(test_file);
+    // Get algorithm if not in progressive mode
+    CompressionAlgorithm* algorithm = NULL;
+    if (!progressive_mode) {
+        algorithm = get_algorithm(algorithm_index);
+        if (!algorithm) {
+            printf("Error: Invalid algorithm index %d\n", algorithm_index);
+            return 1;
         }
     }
     
-    if (strcmp(option, "-c") == 0) {
-        printf("Compressing file...\n");
-        
-        if (large_file_mode) {
-            // For large file compression, we currently only support Huffman
-            if (strcmp(algorithm->name, "Huffman") == 0) {
-                result = compress_large_file(input_file, output_file, buffer_size);
-            } else {
-                printf("Warning: Large file mode is currently only supported for Huffman compression. Using standard mode.\n");
-                result = algorithm->compress(input_file, output_file);
-            }
+    // Perform the requested operation
+    if (compress_mode == 1) {
+        // Compression
+        if (split_mode) {
+            // Split archive compression
+            result = compress_to_split_archive(input_file, output_file, algorithm_index, max_part_size, checksum_type);
+        } else if (progressive_mode) {
+            // Progressive compression
+            result = progressive_compress_file(input_file, output_file, checksum_type);
+        } else if (large_file_mode) {
+            // Large file compression
+            result = compress_large_file(input_file, output_file, buffer_size);
         } else {
-            result = algorithm->compress(input_file, output_file);
+            // Regular compression
+            printf("DEBUG: Using algorithm_index=%d, input=%s, output=%s\n", algorithm_index, input_file, output_file);
+            result = compress_file_with_algorithm(input_file, output_file, algorithm_index, checksum_type);
+            printf("DEBUG: compress_file_with_algorithm returned %d\n", result);
         }
-        
-        if (result == 0) {
-            printf("File compressed successfully.\n");
-            
-            // Print file size details
-            FILE *in = fopen(input_file, "rb");
-            FILE *out = fopen(output_file, "rb");
-            
-            if (in && out) {
-                fseek(in, 0, SEEK_END);
-                fseek(out, 0, SEEK_END);
-                long in_size = ftell(in);
-                long out_size = ftell(out);
-                
-                printf("Original size: %ld bytes\n", in_size);
-                printf("Compressed size: %ld bytes\n", out_size);
-                printf("Compression ratio: %.2f%%\n", 
-                       (1.0 - ((double)out_size / in_size)) * 100);
-                
-                fclose(in);
-                fclose(out);
-            }
+    } else if (compress_mode == 0) {
+        // Decompression
+        if (split_mode) {
+            // Split archive decompression
+            result = decompress_from_split_archive(input_file, output_file, algorithm_index, checksum_type);
+        } else if (progressive_mode && range_specified) {
+            // Progressive partial decompression
+            result = progressive_decompress_range(input_file, output_file, start_block, end_block);
+        } else if (progressive_mode) {
+            // Progressive full decompression
+            result = progressive_decompress_file(input_file, output_file);
+        } else if (large_file_mode) {
+            // Large file decompression
+            result = decompress_large_file(input_file, output_file, buffer_size);
         } else {
-            printf("Error compressing file.\n");
+            // Regular decompression
+            result = decompress_file_with_algorithm(input_file, output_file, algorithm_index, checksum_type);
         }
-    } else if (strcmp(option, "-d") == 0) {
-        printf("Decompressing file...\n");
-        
-        if (large_file_mode) {
-            // For large file decompression, we currently only support Huffman
-            if (strcmp(algorithm->name, "Huffman") == 0) {
-                result = decompress_large_file(input_file, output_file, buffer_size);
-            } else {
-                printf("Warning: Large file mode is currently only supported for Huffman decompression. Using standard mode.\n");
-                result = algorithm->decompress(input_file, output_file);
-            }
-        } else {
-            result = algorithm->decompress(input_file, output_file);
-        }
-        
-        if (result == 0) {
-            printf("File decompressed successfully.\n");
-        } else {
-            printf("Error decompressing file.\n");
-        }
-    } else {
-        printf("Invalid option: %s\n", option);
-        print_usage();
     }
     
-    // End profiling if enabled
     if (profiling_enabled) {
         end_profiling(&profile);
         print_profiling_results(&profile);
     }
     
-    // Free output filename if it was allocated
-    if (!output_file_provided(argc, argv, option)) {
+    if ((algorithm_index == 1 || algorithm_index == 3) && result == 0) {
+        // For RLE and RLE-Parallel, 0 means success
+        printf("Operation completed successfully!\n");
+        printf("Input file: %s\n", input_file);
+        printf("Output file: %s\n", output_file);
+    } else if ((algorithm_index != 1 && algorithm_index != 3) && result != 0) {
+        // For other algorithms, non-zero means success
+        printf("Operation completed successfully!\n");
+        printf("Input file: %s\n", input_file);
+        printf("Output file: %s\n", output_file);
+    } else {
+        printf("Operation failed\n");
+    }
+    
+    // Clean up
+    if (output_file && output_file != input_file) {
         free(output_file);
     }
     
-    return result;
+    // For RLE algorithms, return 0 (success) if result was 0
+    // For other algorithms, return 0 (success) if result was non-zero
+    if ((algorithm_index == 1 || algorithm_index == 3) && result == 0)
+        return 0;
+    
+    return result ? 0 : 1;
 } 

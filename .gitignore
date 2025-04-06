@@ -48,6 +48,7 @@ test*.txt
 large*.txt
 *test*
 verylarge*.txt
+test.txt
 
 # Ignore all HTML files (except the one we want to keep)
 *.html

@@ -1,59 +1,64 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -pthread
+CFLAGS = -Wall -Wextra -O2 -std=c11
 LDFLAGS = -pthread
 
+# For multithreading support
+CFLAGS += -pthread
+
 # Source files
-SRCS = filecompressor.c compression.c huffman.c rle.c lz77.c encryption.c parallel.c lz77_parallel.c large_file_utils.c
-OBJS = $(SRCS:.c=.o)
+SOURCES = filecompressor.c compression.c huffman.c rle.c lz77.c encryption.c \
+          parallel.c lz77_parallel.c large_file_utils.c progressive.c split_archive.c
 
-# Test files
-TEST_SRCS = test_large_file.c
-TEST_OBJS = $(TEST_SRCS:.c=.o)
-TEST_BINS = $(TEST_SRCS:.c=.exe)
+# Object files
+OBJECTS = $(SOURCES:.c=.o)
 
-# Main executable
-TARGET = filecompressor
+# Executable name
+EXECUTABLE = filecompressor
 
-all: $(TARGET) tests
+# Test sources
+TEST_SOURCES = test_large_file.c
+TEST_OBJECTS = $(TEST_SOURCES:.c=.o)
+TEST_EXECUTABLE = test_large_file
 
-# Main target rule
-$(TARGET): $(OBJS)
-	$(CC) $(LDFLAGS) -o $@ $^
+# Default target
+all: $(EXECUTABLE) $(TEST_EXECUTABLE)
 
-# Test binaries
-tests: $(TEST_BINS)
+# Debug build
+debug: CFLAGS += -g -DDEBUG
+debug: all
 
-%.exe: %.o $(filter-out filecompressor.o, $(OBJS))
-	$(CC) $(LDFLAGS) -o $@ $^
+# Release build with more optimizations
+release: CFLAGS += -O3 -DNDEBUG
+release: all
 
-# Object file compilation
+# Link the executable
+$(EXECUTABLE): $(OBJECTS)
+	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
+
+# Compile source files
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Clean rule
+# Test executable
+$(TEST_EXECUTABLE): $(TEST_OBJECTS) large_file_utils.o
+	$(CC) $(TEST_OBJECTS) large_file_utils.o -o $@ $(LDFLAGS)
+
+# Clean up
 clean:
-	rm -f $(TARGET) $(OBJS) $(TEST_BINS) $(TEST_OBJS)
+	rm -f $(OBJECTS) $(TEST_OBJECTS) $(EXECUTABLE) $(TEST_EXECUTABLE)
 
-# Debug build with symbols
-debug: CFLAGS += -g -O0
-debug: clean all
+# Dependencies
+filecompressor.o: filecompressor.c filecompressor.h compression.h huffman.h rle.h parallel.h encryption.h large_file_utils.h progressive.h split_archive.h
+compression.o: compression.c compression.h huffman.h rle.h parallel.h lz77.h lz77_parallel.h encryption.h progressive.h
+huffman.o: huffman.c huffman.h
+rle.o: rle.c rle.h
+lz77.o: lz77.c lz77.h
+lz77_parallel.o: lz77_parallel.c lz77_parallel.h lz77.h parallel.h
+parallel.o: parallel.c parallel.h compression.h
+encryption.o: encryption.c encryption.h
+large_file_utils.o: large_file_utils.c large_file_utils.h
+progressive.o: progressive.c progressive.h compression.h huffman.h lz77.h rle.h
+split_archive.o: split_archive.c split_archive.h large_file_utils.h compression.h
+test_large_file.o: test_large_file.c large_file_utils.h
 
-# Optimized build
-optimize: CFLAGS += -O3 -march=native
-optimize: clean all
-
-# Help rule
-help:
-	@echo "Available targets:"
-	@echo "  all       - Build main program and tests (default)"
-	@echo "  clean     - Remove compiled files"
-	@echo "  debug     - Build with debug symbols"
-	@echo "  optimize  - Build with maximum optimization"
-	@echo "  help      - Show this help message"
-	@echo ""
-	@echo "Usage examples:"
-	@echo "  make                  - Build everything with normal optimization"
-	@echo "  make debug            - Build with debug symbols"
-	@echo "  make optimize         - Build with maximum optimization"
-
-.PHONY: all clean debug optimize help tests 
+.PHONY: all debug release clean 

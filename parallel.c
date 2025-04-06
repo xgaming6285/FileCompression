@@ -30,6 +30,7 @@ typedef struct {
 
 // Initialize parallel compression subsystem
 void init_parallel_compression(int num_threads) {
+    (void)num_threads; // Mark as unused for now
     // Set up any global resources needed
     // Currently nothing needed beyond per-thread setup
 }
@@ -393,8 +394,10 @@ int decompress_file_parallel(const char *input_file, const char *output_file, Co
         }
         
         // Read chunk data
-        if (fread(chunks[i].data, 1, chunk_size, in) != chunk_size) {
-            printf("Error reading chunk data for chunk %d\n", i);
+        size_t read_size = fread(chunks[i].data, 1, chunk_size, in);
+        if ((long)read_size != (long)chunk_size) {
+            fprintf(stderr, "Error reading chunk %d: Expected %ld bytes, got %zu\n", 
+                    i, (long)chunk_size, read_size);
             // Clean up
             for (int j = 0; j <= i; j++) {
                 free(chunks[j].data);

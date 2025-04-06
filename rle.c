@@ -24,6 +24,8 @@ int compress_rle(const char *input_file, const char *output_file) {
     long file_size = ftell(in);
     fseek(in, 0, SEEK_SET);
     
+    printf("DEBUG: RLE compressing file of size %ld bytes\n", file_size);
+    
     FILE *out = fopen(output_file, "wb");
     if (!out) {
         printf("Error opening output file: %s\n", output_file);
@@ -32,23 +34,48 @@ int compress_rle(const char *input_file, const char *output_file) {
     }
     
     // Write original file size
-    fwrite(&file_size, sizeof(long), 1, out);
+    if (fwrite(&file_size, sizeof(long), 1, out) != 1) {
+        printf("Error writing file size to output\n");
+        fclose(in);
+        fclose(out);
+        return 1;
+    }
     
     // Perform RLE compression
     if (file_size > 0) {
-        uint8_t current_byte = fgetc(in);
+        int byte = fgetc(in);
+        if (byte == EOF) {
+            printf("Error reading first byte\n");
+            fclose(in);
+            fclose(out);
+            return 1;
+        }
+        
+        uint8_t current_byte = (uint8_t)byte;
         uint8_t count = 1;
         
         for (long i = 1; i < file_size; i++) {
-            uint8_t next_byte = fgetc(in);
+            byte = fgetc(in);
+            if (byte == EOF) {
+                printf("Error reading byte at position %ld\n", i);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            
+            uint8_t next_byte = (uint8_t)byte;
             
             // If same byte and not at max run length
             if (next_byte == current_byte && count < MAX_RUN) {
                 count++;
             } else {
                 // Write the run
-                fputc(count, out);
-                fputc(current_byte, out);
+                if (fputc(count, out) == EOF || fputc(current_byte, out) == EOF) {
+                    printf("Error writing to output file\n");
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
                 
                 // Start new run
                 current_byte = next_byte;
@@ -57,9 +84,15 @@ int compress_rle(const char *input_file, const char *output_file) {
         }
         
         // Write the last run
-        fputc(count, out);
-        fputc(current_byte, out);
+        if (fputc(count, out) == EOF || fputc(current_byte, out) == EOF) {
+            printf("Error writing final run to output file\n");
+            fclose(in);
+            fclose(out);
+            return 1;
+        }
     }
+    
+    printf("DEBUG: RLE compression completed successfully\n");
     
     fclose(in);
     fclose(out);
@@ -76,7 +109,13 @@ int decompress_rle(const char *input_file, const char *output_file) {
     
     // Read original file size
     long file_size;
-    fread(&file_size, sizeof(long), 1, in);
+    if (fread(&file_size, sizeof(long), 1, in) != 1) {
+        printf("Error reading original file size\n");
+        fclose(in);
+        return 1;
+    }
+    
+    printf("DEBUG: RLE decompressing to size %ld bytes\n", file_size);
     
     FILE *out = fopen(output_file, "wb");
     if (!out) {
@@ -89,15 +128,32 @@ int decompress_rle(const char *input_file, const char *output_file) {
     long bytes_written = 0;
     
     while (bytes_written < file_size) {
-        uint8_t count = fgetc(in);
-        uint8_t byte = fgetc(in);
+        int count_val = fgetc(in);
+        int byte_val = fgetc(in);
+        
+        if (count_val == EOF || byte_val == EOF) {
+            printf("Error: Unexpected end of file at position %ld\n", bytes_written);
+            fclose(in);
+            fclose(out);
+            return 1;
+        }
+        
+        uint8_t count = (uint8_t)count_val;
+        uint8_t byte = (uint8_t)byte_val;
         
         // Write 'count' copies of 'byte'
         for (int i = 0; i < count && bytes_written < file_size; i++) {
-            fputc(byte, out);
+            if (fputc(byte, out) == EOF) {
+                printf("Error writing to output file at position %ld\n", bytes_written);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
             bytes_written++;
         }
     }
+    
+    printf("DEBUG: RLE decompression completed successfully\n");
     
     fclose(in);
     fclose(out);

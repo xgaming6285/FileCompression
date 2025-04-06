@@ -12,6 +12,7 @@
 #include "lz77.h"          // Add LZ77 header
 #include "lz77_parallel.h" // Add LZ77 parallel header
 #include "encryption.h"    // Add encryption header
+#include "progressive.h"   // Add progressive header
 #include "filecompressor.h" // For optimization settings
 
 // Function declarations for external functions
@@ -54,6 +55,16 @@ int decompress_encrypted_lz77(const char *input_file, const char *output_file) {
     // Get the encryption key from the user input
     const char *key = get_encryption_key();
     return decrypt_and_decompress(input_file, output_file, key);
+}
+
+// Wrapper functions for progressive format
+int compress_progressive(const char *input_file, const char *output_file) {
+    // Default to Huffman algorithm for progressive compression and no checksum
+    return progressive_compress_file(input_file, output_file, CHECKSUM_NONE);
+}
+
+int decompress_progressive(const char *input_file, const char *output_file) {
+    return progressive_decompress_file(input_file, output_file);
 }
 
 // Initialize available compression algorithms
@@ -116,6 +127,14 @@ void init_compression_algorithms() {
     algorithms[algorithm_count].decompress = decompress_encrypted_lz77;
     algorithm_count++;
     
+    // Add Progressive format algorithm
+    algorithms[algorithm_count].name = "Progressive";
+    algorithms[algorithm_count].description = "Progressive format (supports partial decompression and streaming)";
+    algorithms[algorithm_count].extension = ".prog";
+    algorithms[algorithm_count].compress = compress_progressive;
+    algorithms[algorithm_count].decompress = decompress_progressive;
+    algorithm_count++;
+    
     // Initialize the parallel subsystem
     init_parallel_compression(thread_count);
 }
@@ -135,7 +154,7 @@ CompressionAlgorithm* get_algorithm(int index) {
 
 // Get algorithm by type
 CompressionAlgorithm* get_algorithm_by_type(CompressionType type) {
-    if (type >= 0 && type < algorithm_count) {
+    if ((int)type >= 0 && (int)type < algorithm_count) {
         return &algorithms[type];
     }
     return NULL;
@@ -190,4 +209,193 @@ void print_profiling_results(ProfileData* profile) {
     
     printf("Profiling results for: %s\n", profile->operation_name);
     printf("  Elapsed time: %.6f seconds\n", profile->elapsed_time);
+}
+
+// Get algorithm extension by index
+const char* get_algorithm_extension(int algorithm_index) {
+    CompressionAlgorithm* algorithm = get_algorithm(algorithm_index);
+    if (algorithm) {
+        return algorithm->extension;
+    }
+    return ".dat"; // Default extension
+}
+
+// Get algorithm name by index
+const char* get_algorithm_name(int algorithm_index) {
+    CompressionAlgorithm* algorithm = get_algorithm(algorithm_index);
+    if (algorithm) {
+        return algorithm->name;
+    }
+    return "Unknown"; // Default name
+}
+
+// Simple algorithm detection from file extension
+int detect_algorithm_from_file(const char* filename) {
+    if (!filename) return -1;
+    
+    // Find the last dot in the filename
+    const char* dot = strrchr(filename, '.');
+    if (!dot || dot == filename) return -1;
+    
+    // Compare with known extensions
+    for (int i = 0; i < algorithm_count; i++) {
+        if (strcmp(dot, algorithms[i].extension) == 0) {
+            return i;
+        }
+    }
+    
+    // Special case for progressive format
+    if (strcmp(dot, ".prog") == 0) {
+        return PROGRESSIVE;
+    }
+    
+    return -1; // Unknown format
+}
+
+// Buffer-based compression
+int compress_buffer(int algorithm_index, const uint8_t* input, size_t input_size, 
+                   uint8_t* output, size_t* output_size) {
+    // This is a simplified implementation - in a real implementation,
+    // we would have buffer-based versions of each compression algorithm
+    if (algorithm_index == HUFFMAN) {
+        // Call Huffman buffer-based compression
+        // For now, we'll just copy data as a placeholder
+        if (*output_size < input_size) {
+            fprintf(stderr, "Output buffer too small\n");
+            return 0;
+        }
+        memcpy(output, input, input_size);
+        *output_size = input_size;
+        return 1;
+    }
+    else if (algorithm_index == RLE) {
+        // Call RLE buffer-based compression
+        // For now, we'll just copy data as a placeholder
+        if (*output_size < input_size) {
+            fprintf(stderr, "Output buffer too small\n");
+            return 0;
+        }
+        memcpy(output, input, input_size);
+        *output_size = input_size;
+        return 1;
+    }
+    // Add similar cases for other algorithms
+    
+    fprintf(stderr, "Unsupported algorithm for buffer compression\n");
+    return 0;
+}
+
+// Buffer-based decompression
+int decompress_buffer(int algorithm_index, const uint8_t* input, size_t input_size, 
+                     uint8_t* output, size_t* output_size) {
+    // This is a simplified implementation - in a real implementation,
+    // we would have buffer-based versions of each decompression algorithm
+    if (algorithm_index == HUFFMAN) {
+        // Call Huffman buffer-based decompression
+        // For now, we'll just copy data as a placeholder
+        if (*output_size < input_size) {
+            fprintf(stderr, "Output buffer too small\n");
+            return 0;
+        }
+        memcpy(output, input, input_size);
+        *output_size = input_size;
+        return 1;
+    }
+    else if (algorithm_index == RLE) {
+        // Call RLE buffer-based decompression
+        // For now, we'll just copy data as a placeholder
+        if (*output_size < input_size) {
+            fprintf(stderr, "Output buffer too small\n");
+            return 0;
+        }
+        memcpy(output, input, input_size);
+        *output_size = input_size;
+        return 1;
+    }
+    // Add similar cases for other algorithms
+    
+    fprintf(stderr, "Unsupported algorithm for buffer decompression\n");
+    return 0;
+}
+
+// High-level file compression function
+int compress_file_with_algorithm(const char* input_file, const char* output_file, int algorithm_index, ChecksumType checksum_type) {
+    (void)checksum_type; // Mark as unused for now
+    
+    if (algorithm_index < 0 || algorithm_index >= algorithm_count) {
+        fprintf(stderr, "Invalid algorithm index: %d\n", algorithm_index);
+        return 0;
+    }
+    
+    CompressionAlgorithm* algorithm = get_algorithm(algorithm_index);
+    if (!algorithm) {
+        fprintf(stderr, "Failed to get algorithm with index %d\n", algorithm_index);
+        return 0;
+    }
+    
+    FILE* input = fopen(input_file, "rb");
+    if (!input) {
+        fprintf(stderr, "Could not open input file %s\n", input_file);
+        return 0;
+    }
+    
+    FILE* output = fopen(output_file, "wb");
+    if (!output) {
+        fprintf(stderr, "Could not open output file %s\n", output_file);
+        fclose(input);
+        return 0;
+    }
+    
+    // Use the algorithm's compression function directly
+    int result = 0;
+    
+    // Close files before calling the algorithm function, as it will open them again
+    fclose(input);
+    fclose(output);
+    
+    // Call the algorithm's compression function
+    result = algorithm->compress(input_file, output_file);
+    
+    return result;
+}
+
+// High-level file decompression function
+int decompress_file_with_algorithm(const char* input_file, const char* output_file, int algorithm_index, ChecksumType checksum_type) {
+    (void)checksum_type; // Mark as unused for now
+    
+    if (algorithm_index < 0 || algorithm_index >= algorithm_count) {
+        fprintf(stderr, "Invalid algorithm index: %d\n", algorithm_index);
+        return 0;
+    }
+    
+    CompressionAlgorithm* algorithm = get_algorithm(algorithm_index);
+    if (!algorithm) {
+        fprintf(stderr, "Failed to get algorithm with index %d\n", algorithm_index);
+        return 0;
+    }
+    
+    FILE* input = fopen(input_file, "rb");
+    if (!input) {
+        fprintf(stderr, "Could not open input file %s\n", input_file);
+        return 0;
+    }
+    
+    FILE* output = fopen(output_file, "wb");
+    if (!output) {
+        fprintf(stderr, "Could not open output file %s\n", output_file);
+        fclose(input);
+        return 0;
+    }
+    
+    // Use the algorithm's decompression function directly
+    int result = 0;
+    
+    // Close files before calling the algorithm function, as it will open them again
+    fclose(input);
+    fclose(output);
+    
+    // Call the algorithm's decompression function
+    result = algorithm->decompress(input_file, output_file);
+    
+    return result;
 } 

@@ -8,7 +8,7 @@
   <img src="https://media.giphy.com/media/3oKIPEqDGUULpEU0aQ/giphy.gif" width="450" alt="Compression Animation">
 </div>
 
-A high-performance C-based file compression tool supporting multiple algorithms, parallel processing, and encryption capabilities.
+A high-performance C-based file compression tool supporting multiple algorithms, parallel processing, encryption, and progressive compression/decompression capabilities.
 
 <details>
 <summary>📋 <b>Overview</b> (Click to expand)</summary>
@@ -27,6 +27,8 @@ This utility provides efficient file compression using several algorithms with a
 - **🎛️ Customizable Optimization** - Select between speed-optimized or size-optimized compression based on your priority
 - **🔒 Integrated Security** - Built-in encryption removes the need for separate security tools
 - **📦 Large File Support** - Special optimizations for files larger than available RAM through chunk-based processing
+- **🔀 Progressive Compression** - Partially decompress files or stream data without processing the entire file
+- **✂️ Split Archive Support** - Split large compressed files across multiple smaller files for easier transfer
 - **⚙️ Performance Tuning** - Adjust buffer sizes, thread counts, and parameters to match your hardware
 - **💻 Simple Interface** - Straightforward command line and batch interfaces despite advanced features
 - **🚀 Storage Optimizations** - Specific enhancements for different storage types (SSDs) and file sizes
@@ -46,17 +48,22 @@ This utility provides efficient file compression using several algorithms with a
   - 🔍 LZ77 compression <kbd>General purpose</kbd>
   - ⚡ Parallel versions of each algorithm <kbd>Multi-core</kbd>
   - 🔒 Encrypted compression with LZ77 <kbd>Secure</kbd>
+  - 📊 Progressive format <kbd>Partial decompression & streaming</kbd>
 
 - **⚙️ Performance options:**
   - 📦 Large file support with chunk-based processing
   - 🚀 Optimization modes (speed vs. compression ratio)
   - 🧵 Multi-threaded compression/decompression
   - 📏 Configurable buffer sizes
+  - 📎 Block-based access for partial file decompression
+  - ✂️ Split archive mode for handling very large files
 
 - **🛠️ Additional capabilities:**
   - 📊 Built-in profiling for performance analysis
-  - ✅ File integrity verification
+  - ✅ File integrity verification with checksums (CRC32, MD5, SHA256)
   - 📈 Progress reporting for large files
+  - 🌊 Streaming decompression for processing data on-the-fly
+  - 🧩 Split large archives across multiple smaller files
 
 ## 🏗️ Project Structure
 
@@ -75,11 +82,15 @@ This utility provides efficient file compression using several algorithms with a
   </tr>
   <tr>
     <td align="center"><img src="https://img.shields.io/badge/File-Handling-green" height="30"/></td>
-    <td><code>large_file_utils.c</code></td>
+    <td><code>large_file_utils.c</code>, <code>split_archive.c</code></td>
   </tr>
   <tr>
     <td align="center"><img src="https://img.shields.io/badge/Security-Features-red" height="30"/></td>
     <td><code>encryption.c</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/Progressive-Format-purple" height="30"/></td>
+    <td><code>progressive.c</code></td>
   </tr>
   <tr>
     <td align="center"><img src="https://img.shields.io/badge/User-Interface-purple" height="30"/></td>
@@ -111,7 +122,7 @@ make
 make debug
 
 # Build with maximum optimization
-make optimize
+make release
 
 # Clean build files
 make clean
@@ -155,6 +166,24 @@ compress.bat compress lz77-parallel largefile.txt
 
 # Compress with encryption
 compress.bat compress lz77-encrypted myfile.txt mypassword
+
+# Compress with progressive format
+compress.bat compress progressive input.txt
+
+# Compress and split into multiple files (100MB per part)
+compress.bat compress split largefile.txt
+
+# Compress and split with custom part size (10MB per part)
+compress.bat compress split largefile.txt 10M
+
+# Decompress a split archive
+compress.bat decompress split largefile.txt output.txt
+
+# Decompress only a specific range of blocks from a progressive file
+compress.bat decompress progressive input.prog output.txt 0-5
+
+# Stream a progressive file to console
+filecompressor -d -P -S - input.prog -
 ```
 
 ### 💻 Command Line Interface
@@ -169,7 +198,7 @@ filecompressor [options] <input_file> [output_file]
 <table>
   <tr>
     <td><kbd>-c [algorithm]</kbd></td>
-    <td>Compress using specified algorithm (0-6)</td>
+    <td>Compress using specified algorithm (0-7)</td>
   </tr>
   <tr>
     <td><kbd>-d [algorithm]</kbd></td>
@@ -181,27 +210,43 @@ filecompressor [options] <input_file> [output_file]
   </tr>
   <tr>
     <td><kbd>-t [threads]</kbd></td>
-    <td>Number of threads to use (default: auto)</td>
+    <td>Number of threads to use for parallel compression</td>
   </tr>
   <tr>
     <td><kbd>-k [key]</kbd></td>
-    <td>Encryption key for secure algorithms</td>
+    <td>Encryption key for secure compression</td>
   </tr>
   <tr>
     <td><kbd>-O [goal]</kbd></td>
-    <td>Optimization goal: speed or size</td>
+    <td>Optimization goal: 'speed' or 'size'</td>
   </tr>
   <tr>
     <td><kbd>-B [size]</kbd></td>
-    <td>Buffer size in bytes (default: 8192)</td>
+    <td>Buffer size in bytes for file operations</td>
   </tr>
   <tr>
     <td><kbd>-L</kbd></td>
-    <td>Enable large file mode for files > available RAM</td>
+    <td>Enable large file mode for files larger than RAM</td>
   </tr>
   <tr>
-    <td><kbd>-p</kbd></td>
-    <td>Enable profiling</td>
+    <td><kbd>-P</kbd></td>
+    <td>Use progressive format (for partial decompression)</td>
+  </tr>
+  <tr>
+    <td><kbd>-R [start-end]</kbd></td>
+    <td>Decompress only specified range of blocks</td>
+  </tr>
+  <tr>
+    <td><kbd>-I [type]</kbd></td>
+    <td>Enable integrity verification (1=CRC32, 2=MD5, 3=SHA256)</td>
+  </tr>
+  <tr>
+    <td><kbd>-X</kbd></td>
+    <td>Enable split archive mode (creates multiple files)</td>
+  </tr>
+  <tr>
+    <td><kbd>-M [size]</kbd></td>
+    <td>Maximum size in bytes for each split archive part</td>
   </tr>
   <tr>
     <td><kbd>-h</kbd></td>
@@ -261,29 +306,49 @@ Use the algorithm index or let the program deduce it from the file extension:
   <tr>
     <td align="center"><img src="https://img.shields.io/badge/6-Encrypted%20LZ77-red" height="22"/></td>
     <td>🔒🔍 Encrypted LZ77</td>
-    <td>Secure data</td>
+    <td>Secure compression</td>
     <td><code>.lz77e</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/7-Progressive-purple" height="22"/></td>
+    <td>📊 Progressive Format</td>
+    <td>Partial decompression and streaming</td>
+    <td><code>.prog</code></td>
   </tr>
 </table>
 </div>
 
-### 📋 Examples
+## 🧩 Progressive Compression Features
 
-```bash
-# Compress text file with Huffman
-filecompressor -c 0 document.txt
+The progressive compression format enables several advanced capabilities:
 
-# Decompress Huffman file
-filecompressor -d document.txt.huf
+- **📊 Block-Based Structure** - Files are divided into independently accessible blocks
+- **🧩 Partial Decompression** - Decompress only specific ranges of blocks without processing the entire file
+- **🌊 Streaming Support** - Process data on-the-fly without storing the full decompressed content
+- **💨 Fast Random Access** - Jump directly to any block in the file
+- **✅ Per-Block Checksums** - Verify integrity of individual blocks
+- **🔍 File Inspection** - View file metadata without full decompression
 
-# Compress image with LZ77 optimized for better compression
-filecompressor -c 4 -O size -B 16384 image.raw
+### Progressive Format Examples
 
-# Process large video file with parallel processing
-filecompressor -c 5 -L -B 1048576 -t 4 video.raw
+```cmd
+# Compress with progressive format
+filecompressor -c -P input.txt
 
-# Secure compression with encryption
-filecompressor -c 6 -k "my_secure_password" confidential.txt
+# Decompress only blocks 5-10
+filecompressor -d -P -R 5-10 input.prog partial_output.txt
+
+# Stream decompression to the console (first 100 bytes of each block)
+filecompressor -d -P -S - input.prog -
+
+# Stream decompression to another program or file
+filecompressor -d -P -S output.txt input.prog
+```
+
+To experiment with progressive features, use the included test script:
+
+```cmd
+test_progressive.bat
 ```
 
 ## 🚀 Performance Optimization

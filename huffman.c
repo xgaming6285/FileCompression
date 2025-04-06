@@ -79,12 +79,12 @@ void min_heapify(MinHeap* minHeap, int idx) {
     int left = 2 * idx + 1;
     int right = 2 * idx + 2;
     
-    if (left < minHeap->size && 
+    if (left < (int)minHeap->size && 
         minHeap->array[left]->frequency < minHeap->array[smallest]->frequency) {
         smallest = left;
     }
     
-    if (right < minHeap->size && 
+    if (right < (int)minHeap->size && 
         minHeap->array[right]->frequency < minHeap->array[smallest]->frequency) {
         smallest = right;
     }
@@ -137,7 +137,7 @@ Node* build_huffman_tree(uint8_t data[], unsigned size) {
     unsigned frequency[MAX_CHAR] = {0};
     
     // Calculate frequency of each character
-    for (int i = 0; i < size; ++i)
+    for (unsigned i = 0; i < size; ++i)
         ++frequency[data[i]];
     
     // Create a min heap for all characters with frequency > 0
@@ -292,9 +292,8 @@ int compress_file(const char* input_file, const char* output_file) {
         total_read += bytes_read;
     }
     
-    if (total_read != file_size) {
-        printf("Error reading input file: expected %ld bytes, got %zu\n", 
-               file_size, total_read);
+    if ((long)total_read != file_size) {
+        printf("Error: Failed to read the entire file\n");
         free(data);
         fclose(in);
         return 1;
