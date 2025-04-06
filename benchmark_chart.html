@@ -2,7 +2,18 @@
 <html>
 <head>
     <title>File Compression Benchmark Results</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Primary Chart.js with integrity check -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" integrity="sha384-7OFDKgLMGHG6KYifhUjxxSuojHIHQ9SZ1XrOBPI/3eSNTRKTAvkrrJ0Mksv+C7YT" crossorigin="anonymous"></script>
+    <!-- Fallback Chart.js without integrity check (will load if the first fails) -->
+    <script>
+      window.addEventListener('error', function(e) {
+        if (e.target.src && e.target.src.includes('chart.js')) {
+          var fallbackScript = document.createElement('script');
+          fallbackScript.src = 'https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js';
+          document.head.appendChild(fallbackScript);
+        }
+      }, true);
+    </script>
     <style>
         body {
             font-family: Arial, sans-serif;
